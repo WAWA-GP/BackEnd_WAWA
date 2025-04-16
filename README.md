@@ -2,6 +2,4 @@
 
 IDE        -  IntelliJ
 
-Language   -  Python
-
-Framework  -  FastAPI
+Language   - Python 3.13 (IntelliJ Plugin)
