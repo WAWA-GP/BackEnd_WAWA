@@ -32,3 +32,4 @@ pyfcm
 requests
 email-validator
 gotrue
+numpy
