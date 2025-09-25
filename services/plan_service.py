@@ -1,5 +1,5 @@
 from models.plan_model import LearningPlanRequest, LearningPlanInternal
-from db.plan_supabase import save_learning_plan_to_db
+from db.plan_supabase import save_learning_plan_to_db, get_latest_plan_by_user
 import json
 
 # 가중치 상수 정의
@@ -94,3 +94,18 @@ def save_learning_plan(plan_data: dict) -> list:
         plan_data['time_distribution'] = json.dumps(plan_data['time_distribution'])
     return save_learning_plan_to_db(plan_data)
 
+def get_and_process_latest_plan(user_id: str):
+    """
+    최신 학습 계획을 가져온 후, time_distribution 필드를
+    문자열에서 딕셔너리로 변환합니다.
+    """
+    plan_data = get_latest_plan_by_user(user_id)
+    if plan_data and isinstance(plan_data.get('time_distribution'), str):
+        try:
+            # JSON 문자열을 파이썬 딕셔너리로 변환
+            plan_data['time_distribution'] = json.loads(plan_data['time_distribution'])
+        except json.JSONDecodeError:
+            # 파싱 실패 시 기본값으로 대체
+            plan_data['time_distribution'] = {}
+
+    return plan_data
