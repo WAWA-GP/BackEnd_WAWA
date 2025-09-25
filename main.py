@@ -1,43 +1,39 @@
-# FastAPI 애플리케이션의 통합된 메인 파일
 from fastapi import FastAPI
 from dotenv import load_dotenv
+from api import plan_api, statistics_api, login_api, admin_api, community_api, notification_api, attendance_api, auth_api, faq_api, leveltest_api, notice_api, user_api
+from services.performance_monitor import performance_monitor
+from profiler_middleware import PyInstrumentProfilerMiddleware
+from supabase import create_client, AsyncClient
+import logging
+from services import notification_service
 
-from api import (
-    auth_api, user_api, admin_api, notice_api,
-    faq_api, level_test_api, attendance_api, plan_api, statistics_api
-)
-
-from models import table_models
-from core.database import engine
-
+# .env 파일에서 환경 변수 로드
 load_dotenv()
 
-# SQLAlchemy 모델을 기반으로 데이터베이스에 모든 테이블을 생성합니다. (기존 프로젝트의 필수 기능 유지)
-models.Base.metadata.create_all(bind=engine)
-
-# FastAPI 앱 인스턴스를 생성.
+# FastAPI 앱 초기화
 app = FastAPI(
     title="통합 모듈 API",
-    description="통합 모듈 API",
+    description="로그인, 사용자별 맞춤 학습 계획 생성, 학습 통계 조회 API",
     version="1.0.0"
 )
 
-# 1. 학습 계획 생성 API
+# --- API 라우터 ---
+# 1. 학습 계획 성생 API
 app.include_router(
     plan_api.router,
-    prefix="/api/plans", # 새로운 main.py의 prefix 적용
+    prefix="/api/plans",
     tags=["Learning Plans"]
 )
 # 2. 학습 통계 조회 API
 app.include_router(
     statistics_api.router,
-    prefix="/api/statistics", # 새로운 main.py의 prefix 적용
+    prefix="/api/statistics",
     tags=["Learning Statistics"]
 )
 
-# 3. 로그인/인증 API (기존 auth_api를 사용, prefix와 태그는 새로운 main.py의 형식에 맞춤)
+# 3. 로그인 API
 app.include_router(
-    auth_api.router,
+    login_api.router,
     prefix="/auth",
     tags=["Auth"]
 )
@@ -72,7 +68,7 @@ app.include_router(
 
 # 8. 레벨 테스트 API
 app.include_router(
-    level_test_api.router,
+    leveltest_api.router,
     prefix="/api/level-test",
     tags=["Level Test"]
 )
@@ -84,7 +80,26 @@ app.include_router(
     tags=["Attendance"]
 )
 
+# 10. 푸시 알림 API
+app.include_router(
+    notification_api.router,
+    prefix="/api/notifications",
+    tags=["User Notifications"]
+)
+
+# 11. 커뮤니티 API
+app.include_router(
+    community_api.router,
+    prefix="/api/community",
+    tags=["Community"]
+)
+
 # 서버 정상 동작 확인
 @app.get("/", tags=["Root"])
 async def read_root():
     return {"message": "서버 정상 동작중"}
+
+@app.on_event("shutdown")
+def shutdown_event():
+    print("👋 서버가 종료됩니다. 성능 리포트를 생성합니다...")
+    performance_monitor.generate_report()
