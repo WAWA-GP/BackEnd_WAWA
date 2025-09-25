@@ -1,12 +1,13 @@
 from fastapi import APIRouter, HTTPException, Path
 from models.statistics_model import StatisticsResponse, User
 from db.statistics_supabase import get_user_data_from_supabase
+from services.performance_monitor import measure_performance
 from services.statistics_service import calculate_overall_statistics, calculate_progress_statistics
 
 router = APIRouter()
 
 @router.get("/statistics/{user_id}", response_model=StatisticsResponse)
-
+@measure_performance("통계 계산")
 def get_user_statistics(user_id: str = Path(..., title="사용자 ID", description="통계를 조회할 사용자의 고유 ID")):
     user_data = get_user_data_from_supabase(user_id)
     if not user_data:
