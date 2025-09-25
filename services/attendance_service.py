@@ -1,32 +1,32 @@
 # '출석 체크' 관련 비즈니스 로직을 처리하는 파일입니다.
-from sqlalchemy.orm import Session
-from db import attendance_crud
+from supabase import AsyncClient
+from db import attendance_supabase
 from datetime import date, timedelta
 
 # --- 출석 체크 서비스 ---
-def mark_attendance(db: Session, user_id: int):
+async def mark_attendance(db: AsyncClient, user_id: str):
     today = date.today()
-    existing = attendance_crud.get_attendance_by_date(db, user_id=user_id, date=today)
+    existing = await attendance_supabase.get_attendance_by_date(db, user_id=user_id, attendance_date=today)
     if existing:
         return None
-    return attendance_crud.create_attendance(db, user_id=user_id, date=today)
+    return await attendance_supabase.create_attendance(db, user_id=user_id, attendance_date=today)
 
 # --- 전체 출석 기록 조회 서비스 ---
-def get_user_attendance_history(db: Session, user_id: int):
-    return attendance_crud.get_all_attendances_by_user(db, user_id=user_id)
+async def get_user_attendance_history(db: AsyncClient, user_id: str):
+    return await attendance_supabase.get_all_attendances_by_user(db, user_id=user_id)
 
 # --- 출석 통계 계산 서비스 ---
-def calculate_stats(db: Session, user_id: int):
-    records = attendance_crud.get_all_attendances_by_user(db, user_id=user_id)
+async def calculate_stats(db: AsyncClient, user_id: str):
+    records = await attendance_supabase.get_all_attendances_by_user(db, user_id=user_id)
     if not records:
         return {"total_days": 0, "longest_streak": 0}
 
     total_days = len(records)
-
     streak = 0
     max_streak = 0
 
-    sorted_dates = sorted([r.date for r in records])
+    # Supabase는 날짜를 문자열로 반환하므로 date 객체로 변환합니다.
+    sorted_dates = sorted([date.fromisoformat(r['date']) for r in records])
 
     if sorted_dates:
         streak = 1
