@@ -53,6 +53,27 @@ def create_custom_learning_plan(request: LearningPlanRequest) -> dict:
         elif remainder > 0 and "pronunciation" in styles:
             time_distribution["pronunciation"] += remainder
 
+    #학습 계획 정보 표시
+    summary_lines = []
+
+    summary_lines.append(f"총 소요 일수 : {estimated_days}일")
+    summary_lines.append(f"학습 주기 : {frequency_description}")
+    summary_lines.append(f"총 학습 시간 : {total_duration}분")
+
+    style_names = {
+        "conversation": "회화 학습",
+        "grammar": "문법 연습",
+        "pronunciation": "발음 연습"
+    }
+
+    if time_distribution.get("conversation", 0) > 0:
+        summary_lines.append(f"{style_names['conversation']} : {time_distribution['conversation']}분")
+    if time_distribution.get("grammar", 0) > 0:
+        summary_lines.append(f"{style_names['grammar']} : {time_distribution['grammar']}분")
+    if time_distribution.get("pronunciation", 0) > 0:
+        summary_lines.append(f"{style_names['pronunciation']} : {time_distribution['pronunciation']}분")
+
+    plan_summary = "\n".join(summary_lines)
 
     internal_plan = LearningPlanInternal(
         user_id=request.user_id,
@@ -61,7 +82,8 @@ def create_custom_learning_plan(request: LearningPlanRequest) -> dict:
         estimated_days=estimated_days,
         frequency_description=frequency_description,
         total_session_duration=total_duration,
-        time_distribution=time_distribution
+        time_distribution=time_distribution,
+        plan_summary=plan_summary
     )
 
     return internal_plan.dict()
