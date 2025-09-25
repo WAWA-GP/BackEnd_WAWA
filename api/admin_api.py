@@ -6,5 +6,5 @@ router = APIRouter(prefix="/admin")
 
 # --- 관리자 대시보드 API (예시) ---
 @router.get("/dashboard")
-def admin_dashboard(current_admin: db_models.User = Depends(get_current_admin)):
-    return {"message": f"Welcome to the admin dashboard, {current_admin.username}!"}
+async def admin_dashboard(current_admin: dict = Depends(get_current_admin)):
+    return {"message": f"Welcome to the admin dashboard, {current_admin['username']}!"}
