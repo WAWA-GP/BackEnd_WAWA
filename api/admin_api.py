@@ -1,7 +1,6 @@
 # '관리자' 기능 관련 API 엔드포인트를 정의하는 파일입니다.
 from fastapi import APIRouter, Depends
 from core.dependencies import get_current_admin
-from database import models as db_models
 
 router = APIRouter(prefix="/admin")
 
