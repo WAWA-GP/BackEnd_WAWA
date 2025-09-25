@@ -31,3 +31,4 @@ fastapi-apscheduler
 pyfcm
 requests
 email-validator
+gotrue
