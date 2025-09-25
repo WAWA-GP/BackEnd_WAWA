@@ -33,3 +33,4 @@ requests
 email-validator
 gotrue
 numpy
+pyinstrument
