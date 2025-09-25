@@ -20,6 +20,7 @@ class LearningPlanInternal(BaseModel):
     frequency_description: str
     total_session_duration: int
     time_distribution: Dict[str, int]
+    plan_summary: str
 
 # API 응답
 class LearningPlanResponse(BaseModel):
@@ -32,6 +33,7 @@ class LearningPlanResponse(BaseModel):
     frequency_description: str
     total_session_duration: int
     time_distribution: Dict[str, int]
+    plan_summary: str
 
     class Config:
         orm_mode = True
