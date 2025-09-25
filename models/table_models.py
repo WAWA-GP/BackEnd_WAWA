@@ -13,7 +13,7 @@ Base = declarative_base()
 # ✅ 사용자(User)
 # ======================
 class User(Base):
-    __tablename__ = "users" # 데이터베이스 테이블 이름
+    __tablename__ = "user_account" # 데이터베이스 테이블 이름
 
     id = Column(Integer, primary_key=True, index=True) # 기본 키
     username = Column(String, unique=True, index=True, nullable=False) # 사용자 이름 (고유값)
