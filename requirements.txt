@@ -18,9 +18,16 @@ psycopg2-binary
 python-dotenv
 
 # Python-jose : JWT(JSON Web Token)의 생성, 서명, 검증을 담당하는 라이브러리입니다.
-python-jose
+python-jose[cryptography]
 # Passlib : 비밀번호 암호화(Hashing)하기 위한 라이브러리입니다. bcrypt 알고리즘을 함께 설치합니다.
 passlib[bcrypt]
 
 # Google OAuth : Google 로그인
 authlib
+
+python-dotenv
+postgrest
+fastapi-apscheduler
+pyfcm
+requests
+email-validator
