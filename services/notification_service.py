@@ -3,6 +3,7 @@
 from supabase import AsyncClient
 from db import notification_supabase, user_crud  # user_crud import 추가
 from pyfcm import FCMNotification
+from models import notification_model
 
 # --- 1. 공부 시작 알림 생성 서비스 ---
 async def send_study_start_notification(db: AsyncClient, email: str):
@@ -61,3 +62,31 @@ async def mark_as_read(db: AsyncClient, notification_id: int, current_user_id: s
     if not notification or notification.get('user_id') != current_user_id:
         return None
     return await notification_supabase.mark_notification_as_read(db, notification_id)
+
+# --- 사용자 알림 설정 조회 서비스 ---
+async def get_settings_for_user(db: AsyncClient, user_id: str):
+    """사용자의 현재 알림 설정을 가져옵니다. 설정이 없으면 기본값을 반환합니다."""
+    settings = await user_crud.get_notification_settings(db, user_id)
+    if settings is None:
+        # DB에 설정값이 없는 신규 사용자를 위해 기본 설정 모델을 반환
+        return notification_model.NotificationSettings()
+    return notification_model.NotificationSettings(**settings)
+
+# --- 사용자 알림 설정 업데이트 서비스 ---
+async def update_settings_for_user(db: AsyncClient, user_id: str, settings_update: notification_model.NotificationSettingsUpdate):
+    """사용자의 알림 설정을 업데이트합니다."""
+    # 1. 현재 설정을 먼저 가져옵니다.
+    current_settings_model = await get_settings_for_user(db, user_id)
+    current_settings_dict = current_settings_model.model_dump()
+
+    # 2. 요청으로 들어온 새 설정값만 추려서(exclude_unset=True) 딕셔너리로 만듭니다.
+    update_data = settings_update.model_dump(exclude_unset=True)
+
+    # 3. 현재 설정에 새 설정값을 덮어씁니다.
+    current_settings_dict.update(update_data)
+
+    # 4. 합쳐진 전체 설정값을 DB에 저장합니다.
+    updated_settings = await user_crud.update_notification_settings(db, user_id, current_settings_dict)
+    if updated_settings is None:
+        return None
+    return notification_model.NotificationSettings(**updated_settings)
