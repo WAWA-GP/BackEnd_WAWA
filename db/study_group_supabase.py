@@ -6,24 +6,16 @@ async def create_study_group(
         name: str,
         description: Optional[str],
         created_by: str,
-<<<<<<< HEAD
         max_members: int,
         requires_approval: bool # << [추가]
-=======
-        max_members: int
->>>>>>> origin/master
 ) -> Dict[str, Any]:
     """학습 그룹 생성"""
     response = await db.table('study_groups').insert({
         'name': name,
         'description': description,
         'created_by': created_by,
-<<<<<<< HEAD
         'max_members': max_members,
         'requires_approval': requires_approval # << [추가]
-=======
-        'max_members': max_members
->>>>>>> origin/master
     }).execute()
 
     group_id = response.data[0]['id']
@@ -50,19 +42,11 @@ async def get_all_study_groups(db: AsyncClient, current_user_id: str) -> List[Di
     for group in groups_response.data:
         # 각 그룹의 멤버 수 조회
         members_response = await db.table('group_members') \
-<<<<<<< HEAD
             .select('user_id, role', count='exact') \
             .eq('group_id', group['id']) \
             .execute()
 
         member_count = members_response.count
-=======
-            .select('user_id, role') \
-            .eq('group_id', group['id']) \
-            .execute()
-
-        member_count = len(members_response.data)
->>>>>>> origin/master
         is_member = any(m['user_id'] == current_user_id for m in members_response.data)
         is_owner = any(m['user_id'] == current_user_id and m['role'] == 'owner'
                        for m in members_response.data)
@@ -77,7 +61,6 @@ async def get_all_study_groups(db: AsyncClient, current_user_id: str) -> List[Di
 
     return groups
 
-<<<<<<< HEAD
 async def join_study_group(db: AsyncClient, group_id: int, user_id: str) -> str: # << [수정] 반환타입 변경
     """그룹 참여 또는 참여 요청"""
     # 그룹 정보 조회
@@ -111,27 +94,6 @@ async def join_study_group(db: AsyncClient, group_id: int, user_id: str) -> str:
             'role': 'member'
         }).execute()
         return "그룹에 참여했습니다."
-=======
-async def join_study_group(db: AsyncClient, group_id: int, user_id: str) -> bool:
-    """그룹 참여"""
-    # 그룹 정보 조회
-    group = await db.table('study_groups').select('max_members').eq('id', group_id).single().execute()
-
-    # 현재 멤버 수 확인
-    members = await db.table('group_members').select('user_id').eq('group_id', group_id).execute()
-
-    if len(members.data) >= group.data['max_members']:
-        raise Exception('그룹 인원이 가득 찼습니다.')
-
-    # 멤버 추가
-    await db.table('group_members').insert({
-        'group_id': group_id,
-        'user_id': user_id,
-        'role': 'member'
-    }).execute()
-
-    return True
->>>>>>> origin/master
 
 async def leave_study_group(db: AsyncClient, group_id: int, user_id: str) -> bool:
     """그룹 탈퇴"""
@@ -193,7 +155,6 @@ async def delete_study_group(db: AsyncClient, group_id: int, user_id: str) -> bo
         .execute()
 
     return True
-<<<<<<< HEAD
 
 async def get_group_messages(db: AsyncClient, group_id: int) -> List[Dict[str, Any]]:
     """그룹 채팅 메시지 목록 조회"""
@@ -304,5 +265,3 @@ async def get_group_owner(db: AsyncClient, group_id: int) -> Optional[str]:
         .maybe_single() \
         .execute()
     return owner_res.data['user_id'] if owner_res.data else None
-=======
->>>>>>> origin/master

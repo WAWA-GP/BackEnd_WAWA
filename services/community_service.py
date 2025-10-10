@@ -64,8 +64,4 @@ async def create_new_report(db: AsyncClient, report: community_model.ReportCreat
     return await community_supabase.create_report(db, report, user_id)
 
 async def get_all_reports(db: AsyncClient):
-<<<<<<< HEAD
     return await community_supabase.get_all_reports(db)
-=======
-    return await community_supabase.get_all_reports(db)
->>>>>>> origin/master

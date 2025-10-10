@@ -94,8 +94,4 @@ class Attendance(Base):
     __table_args__ = (UniqueConstraint("user_id", "date", name="_user_date_uc"),)
 
     # User 모델과의 양방향 관계 설정
-<<<<<<< HEAD
     user = relationship("User", back_populates="attendances")
-=======
-    user = relationship("User", back_populates="attendances")
->>>>>>> origin/master

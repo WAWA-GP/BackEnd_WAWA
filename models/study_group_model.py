@@ -7,10 +7,7 @@ class StudyGroupCreate(BaseModel):
     name: str = Field(..., min_length=2, max_length=100)
     description: Optional[str] = Field(None, max_length=500)
     max_members: int = Field(default=10, ge=2, le=50)
-<<<<<<< HEAD
     requires_approval: bool = Field(default=False)
-=======
->>>>>>> origin/master
 
 # 그룹 응답
 class StudyGroupResponse(BaseModel):
@@ -23,10 +20,7 @@ class StudyGroupResponse(BaseModel):
     member_count: int
     is_member: bool
     is_owner: bool
-<<<<<<< HEAD
     requires_approval: bool
-=======
->>>>>>> origin/master
     created_at: datetime
 
 # 그룹 멤버 응답
@@ -35,7 +29,6 @@ class GroupMemberResponse(BaseModel):
     user_name: str
     role: str
     joined_at: datetime
-<<<<<<< HEAD
 
 class GroupMessageCreate(BaseModel):
     content: str = Field(..., min_length=1)
@@ -53,5 +46,3 @@ class JoinRequestResponse(BaseModel):
     user_id: str
     user_name: str
     requested_at: datetime
-=======
->>>>>>> origin/master

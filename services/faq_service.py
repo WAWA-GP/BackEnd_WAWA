@@ -22,8 +22,4 @@ async def update_existing_faq(db: AsyncClient, faq_id: int, faq_update: faq_mode
 
 # --- FAQ 삭제 서비스 ---
 async def delete_faq_by_id(db: AsyncClient, faq_id: int):
-<<<<<<< HEAD
     return await faq_supabase.delete_faq(db=db, faq_id=faq_id)
-=======
-    return await faq_supabase.delete_faq(db=db, faq_id=faq_id)
->>>>>>> origin/master

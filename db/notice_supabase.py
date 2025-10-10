@@ -26,8 +26,4 @@ async def update_notice(db: AsyncClient, notice_id: int, update_data: dict):
 # --- 공지사항 삭제 ---
 async def delete_notice(db: AsyncClient, notice_id: int):
     response = await db.table("notices").delete().eq("id", notice_id).execute()
-<<<<<<< HEAD
     return response.data is not None
-=======
-    return response.data is not None
->>>>>>> origin/master

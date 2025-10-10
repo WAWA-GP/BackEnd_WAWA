@@ -25,8 +25,4 @@ async def get_supabase_client() -> AsyncClient:
     # acreate_client 사용
     from supabase import acreate_client
     client = await acreate_client(SUPABASE_URL, SUPABASE_KEY)
-<<<<<<< HEAD
     return client
-=======
-    return client
->>>>>>> origin/master

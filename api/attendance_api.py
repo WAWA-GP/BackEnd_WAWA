@@ -35,8 +35,4 @@ async def get_attendance_history(
 async def get_attendance_stats(
         db: AsyncClient = Depends(get_db), current_user: dict = Depends(get_current_user)
 ):
-<<<<<<< HEAD
     return await attendance_service.calculate_stats(db=db, user_id=current_user['user_id'])
-=======
-    return await attendance_service.calculate_stats(db=db, user_id=current_user['user_id'])
->>>>>>> origin/master

@@ -240,8 +240,4 @@ def generate_overall_feedback(stats: OverallStats) -> str:
     if total_duration > 1000:
         feedback_parts.append("총 회화 시간이 1000분을 돌파했습니다! 유창한 스피킹 실력이 눈앞에 보여요.")
 
-<<<<<<< HEAD
     return " ".join(feedback_parts)
-=======
-    return " ".join(feedback_parts)
->>>>>>> origin/master

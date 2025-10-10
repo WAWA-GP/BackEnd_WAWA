@@ -31,10 +31,7 @@ class LoginResponse(BaseModel):
 
 class SocialLoginUrl(BaseModel):
     url: str
-<<<<<<< HEAD
     code_verifier: str
-=======
->>>>>>> origin/master
 
 class UserLevelUpdate(BaseModel):
     email: str
@@ -74,8 +71,4 @@ class NameCheckRequest(BaseModel):
     name: str
 
 class NameCheckResponse(BaseModel):
-<<<<<<< HEAD
     available: bool
-=======
-    available: bool
->>>>>>> origin/master

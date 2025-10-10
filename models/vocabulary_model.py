@@ -54,8 +54,4 @@ class WordbookResponse(WordbookBase):
 
 class WordbookDetailResponse(WordbookResponse):
     # 단어장 상세 조회 시 단어 목록 포함
-<<<<<<< HEAD
     words: List[UserWordResponse] = []
-=======
-    words: List[UserWordResponse] = []
->>>>>>> origin/master

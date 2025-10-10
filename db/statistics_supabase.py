@@ -47,8 +47,4 @@ async def add_learning_log_to_user(user_id: str, log_data: Dict[str, Any], db: A
 
     except Exception as e:
         print(f"학습 로그 추가 중 오류 발생: {e}")
-<<<<<<< HEAD
         raise e
-=======
-        raise e
->>>>>>> origin/master

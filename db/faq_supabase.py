@@ -26,8 +26,4 @@ async def update_faq(db: AsyncClient, faq_id: int, update_data: dict):
 # --- FAQ 삭제 ---
 async def delete_faq(db: AsyncClient, faq_id: int):
     response = await db.table("faqs").delete().eq("id", faq_id).execute()
-<<<<<<< HEAD
     return response.data is not None
-=======
-    return response.data is not None
->>>>>>> origin/master

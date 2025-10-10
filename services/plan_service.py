@@ -142,8 +142,4 @@ async def get_and_process_latest_plan(user_id: str, db: AsyncClient):
             plan_data['time_distribution'] = json.loads(plan_data['time_distribution'])
         except json.JSONDecodeError:
             plan_data['time_distribution'] = {}
-<<<<<<< HEAD
     return plan_data
-=======
-    return plan_data
->>>>>>> origin/master
