@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Request
+from fastapi.openapi.utils import get_openapi  # ✅ 이 줄이 있는지 확인!
 from dotenv import load_dotenv
 from api import plan_api, statistics_api, grammar_api, login_api, vocabulary_api, pronunciation_api, study_group_api, admin_api, community_api, notification_api, attendance_api, auth_api, faq_api, leveltest_api, notice_api, user_api
 from services.performance_monitor import performance_monitor
@@ -16,11 +17,10 @@ load_dotenv()
 app = FastAPI(
     title="통합 모듈 API",
     description="로그인, 사용자별 맞춤 학습 계획 생성, 학습 통계 조회 API",
-    version="1.0.0",
-    docs_url="/docs",      
-    redoc_url="/redoc"
+    version="1.0.0"
 )
 
+# ✅ custom_openapi 함수 추가
 def custom_openapi():
     if app.openapi_schema:
         return app.openapi_schema
@@ -38,7 +38,6 @@ def custom_openapi():
             "type": "http",
             "scheme": "bearer",
             "bearerFormat": "JWT",
-            "description": "JWT 토큰을 입력하세요. 예: 'your_token_here' (Bearer 제외)"
         }
     }
     
