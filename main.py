@@ -16,8 +16,36 @@ load_dotenv()
 app = FastAPI(
     title="통합 모듈 API",
     description="로그인, 사용자별 맞춤 학습 계획 생성, 학습 통계 조회 API",
-    version="1.0.0"
+    version="1.0.0",
+    docs_url="/docs",      
+    redoc_url="/redoc"
 )
+
+def custom_openapi():
+    if app.openapi_schema:
+        return app.openapi_schema
+    
+    openapi_schema = get_openapi(
+        title=app.title,
+        version=app.version,
+        description=app.description,
+        routes=app.routes,
+    )
+    
+    # Bearer Token 인증 설정
+    openapi_schema["components"]["securitySchemes"] = {
+        "BearerAuth": {
+            "type": "http",
+            "scheme": "bearer",
+            "bearerFormat": "JWT",
+            "description": "JWT 토큰을 입력하세요. 예: 'your_token_here' (Bearer 제외)"
+        }
+    }
+    
+    app.openapi_schema = openapi_schema
+    return app.openapi_schema
+
+app.openapi = custom_openapi
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
