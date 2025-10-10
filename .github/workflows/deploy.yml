@@ -43,6 +43,10 @@ jobs:
           SUPABASE_URL=${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY=${{ secrets.SUPABASE_KEY }}
           SECRET_KEY=${{ secrets.SECRET_KEY }}
+          ENVIRONMENT=production
+          DEBUG=false
+          HOST=0.0.0.0
+          PORT=8001
           EOF
           
             echo "🧹 Cleaning Python cache..."
@@ -74,7 +78,7 @@ jobs:
 
       - name: Notify success
         if: success()
-        run: echo "🎉 Backend deployment successful to http://13.48.248.250/api"
+        run: echo "🎉 Backend deployment successful to http://16.170.225.72"
 
       - name: Notify failure
         if: failure()
