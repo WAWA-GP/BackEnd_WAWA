@@ -1,6 +1,7 @@
 # '출석 체크' 관련 비즈니스 로직을 처리하는 파일입니다.
 from supabase import AsyncClient
 from db import attendance_supabase
+from fastapi import HTTPException
 from datetime import date, timedelta
 
 # --- 출석 체크 서비스 ---
@@ -8,8 +9,9 @@ async def mark_attendance(db: AsyncClient, user_id: str):
     today = date.today()
     existing = await attendance_supabase.get_attendance_by_date(db, user_id=user_id, attendance_date=today)
     if existing:
-        return None
+        raise HTTPException(status_code=409, detail="오늘은 이미 출석체크를 완료했습니다.")
     return await attendance_supabase.create_attendance(db, user_id=user_id, attendance_date=today)
+
 
 # --- 전체 출석 기록 조회 서비스 ---
 async def get_user_attendance_history(db: AsyncClient, user_id: str):
