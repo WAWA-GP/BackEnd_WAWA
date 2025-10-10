@@ -32,3 +32,7 @@ class UserResponse(BaseModel):
     class Config:
         # orm_mode=True 설정은 SQLAlchemy ORM 객체를 이 Pydantic 모델로 자동으로 변환할 수 있게 해줍니다.
         orm_mode = True
+
+class AccountDelete(BaseModel):
+    password: str
+    reason: Optional[str] = None
