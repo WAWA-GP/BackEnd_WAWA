@@ -45,4 +45,8 @@ async def get_notification_by_id(db: AsyncClient, notification_id: int):
 async def mark_notification_as_read(db: AsyncClient, notification_id: int):
     """특정 알림의 is_read 상태를 true로 변경합니다."""
     response = await db.table("notifications").update({"is_read": True}).eq("id", notification_id).execute()
+<<<<<<< HEAD
     return response.data[0] if response.data else None
+=======
+    return response.data[0] if response.data else None
+>>>>>>> origin/master

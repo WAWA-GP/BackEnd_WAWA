@@ -82,4 +82,8 @@ async def get_pronunciation_statistics(
         return PronunciationStatistics(**stats)
     except Exception as e:
         print(f"발음 통계 조회 오류: {e}")
+<<<<<<< HEAD
         raise HTTPException(status_code=500, detail=str(e))
+=======
+        raise HTTPException(status_code=500, detail=str(e))
+>>>>>>> origin/master

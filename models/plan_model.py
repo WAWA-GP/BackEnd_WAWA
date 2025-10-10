@@ -53,4 +53,8 @@ class LearningPlanResponse(BaseModel):
 class PlanTemplateResponse(BaseModel):
     id: str
     name: str
+<<<<<<< HEAD
     description: str
+=======
+    description: str
+>>>>>>> origin/master

@@ -72,4 +72,8 @@ async def toggle_word_favorite(db: AsyncClient, word_id: int, is_favorite: bool)
     return await vocabulary_supabase.update_word_favorite_status(db, word_id, is_favorite)
 
 async def get_all_favorite_words(db: AsyncClient, user_id: str):
+<<<<<<< HEAD
     return await vocabulary_supabase.get_favorite_words(db, user_id)
+=======
+    return await vocabulary_supabase.get_favorite_words(db, user_id)
+>>>>>>> origin/master

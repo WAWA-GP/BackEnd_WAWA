@@ -3,11 +3,15 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 from core import config
 import os
+<<<<<<< HEAD
 import logging
+=======
+>>>>>>> origin/master
 from dotenv import load_dotenv
 
 load_dotenv()
 
+<<<<<<< HEAD
 pwd_context = CryptContext(
     schemes=["bcrypt"],
     deprecated="auto",
@@ -15,6 +19,9 @@ pwd_context = CryptContext(
     bcrypt__ident="2b"  # 최신 bcrypt 식별자 사용
 )
 
+=======
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+>>>>>>> origin/master
 
 # .env 파일의 SUPABASE_JWT_SECRET 값을 가져옵니다.
 JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET")
@@ -22,6 +29,7 @@ ALGORITHM = config.ALGORITHM
 
 # --- Password Hashing ---
 def hash_password(password: str) -> str:
+<<<<<<< HEAD
     """비밀번호를 해싱합니다. 72바이트 제한 처리 포함"""
     try:
         # bcrypt는 72바이트까지만 처리 가능하므로 자르기
@@ -50,6 +58,13 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     except Exception as e:
         logging.error(f"비밀번호 검증 오류: {e}")
         return False
+=======
+    return pwd_context.hash(password)
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    return pwd_context.verify(plain_password, hashed_password)
+
+>>>>>>> origin/master
 # --- JWT Token ---
 def create_access_token(data: dict):
     to_encode = data.copy()
@@ -84,4 +99,8 @@ def get_username_from_token(token: str):
         )
         return payload.get("email")
     except JWTError:
+<<<<<<< HEAD
         return None
+=======
+        return None
+>>>>>>> origin/master

@@ -84,4 +84,8 @@ async def create_report(db: AsyncClient, report: community_model.ReportCreate, u
 
 async def get_all_reports(db: AsyncClient):
     response = await db.table("reports").select("*").execute()
+<<<<<<< HEAD
     return response.data
+=======
+    return response.data
+>>>>>>> origin/master

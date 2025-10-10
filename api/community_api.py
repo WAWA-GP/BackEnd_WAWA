@@ -121,4 +121,8 @@ async def list_reports(
         db: AsyncClient = Depends(get_db),
         admin: dict = Depends(get_current_admin)
 ):
+<<<<<<< HEAD
     return await community_service.get_all_reports(db)
+=======
+    return await community_service.get_all_reports(db)
+>>>>>>> origin/master

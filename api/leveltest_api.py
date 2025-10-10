@@ -28,4 +28,8 @@ async def submit_test_answers(
     result = await leveltest_service.process_submission(
         db=db, user_id=current_user['id'], submission=submission
     )
+<<<<<<< HEAD
     return result
+=======
+    return result
+>>>>>>> origin/master

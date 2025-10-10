@@ -120,4 +120,8 @@ async def get_pronunciation_statistics(
         'average_stress': sum(s['stress_score'] for s in scores) / count,
         'average_fluency': sum(s.get('fluency_score', 0) or 0 for s in scores) / count,
         'recent_improvement': recent_improvement
+<<<<<<< HEAD
     }
+=======
+    }
+>>>>>>> origin/master
