@@ -1,11 +1,13 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from dotenv import load_dotenv
-from api import plan_api, statistics_api, login_api, admin_api, community_api, notification_api, attendance_api, auth_api, faq_api, leveltest_api, notice_api, user_api
+from api import plan_api, statistics_api, grammar_api, login_api, vocabulary_api, pronunciation_api, study_group_api, admin_api, community_api, notification_api, attendance_api, auth_api, faq_api, leveltest_api, notice_api, user_api
 from services.performance_monitor import performance_monitor
 from profiler_middleware import PyInstrumentProfilerMiddleware
 from supabase import create_client, AsyncClient
 import logging
 from services import notification_service
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 
 # .env 파일에서 환경 변수 로드
 load_dotenv()
@@ -17,7 +19,26 @@ app = FastAPI(
     version="1.0.0"
 )
 
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    print(f"=== Validation Error ===")
+    print(f"Body: {await request.body()}")
+    print(f"Errors: {exc.errors()}")
+    print(f"======================")
+    return JSONResponse(
+        status_code=422,
+        content={"detail": exc.errors(), "body": str(await request.body())}
+    )
+
 # --- API 라우터 ---
+
+# 15. 문법 연습 이력 API
+app.include_router(
+    grammar_api.router,
+    prefix="/api/grammar",
+    tags=["Grammar"]
+)
+
 # 1. 학습 계획 성생 API
 app.include_router(
     plan_api.router,
@@ -92,6 +113,27 @@ app.include_router(
     community_api.router,
     prefix="/api/community",
     tags=["Community"]
+)
+
+# 12. 학습 그룹
+app.include_router(
+    study_group_api.router,
+    prefix="/api/study-groups",
+    tags=["Study Groups"]
+)
+
+# 13. 발음 분석 내역
+app.include_router(
+    pronunciation_api.router,
+    prefix="/api/pronunciation",
+    tags=["Pronunciation"]
+)
+
+# 14. 단어장 API
+app.include_router(
+    vocabulary_api.router,
+    prefix="/api/vocabulary",
+    tags=["Vocabulary"]
 )
 
 # 서버 정상 동작 확인
