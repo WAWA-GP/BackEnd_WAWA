@@ -16,6 +16,10 @@ class UserUpdate(BaseModel):
     password: Optional[str] = None
     is_admin: Optional[bool] = None
 
+class UserProfileUpdate(BaseModel):
+    email: Optional[EmailStr] = None
+    name: Optional[str] = None
+
 # ▼▼▼ [수정] Token과 LoginResponse를 하나로 통합합니다. ▼▼▼
 class LoginResponse(BaseModel):
     """로그인 성공 시 반환하는 통합 데이터 모델"""
@@ -23,6 +27,7 @@ class LoginResponse(BaseModel):
     token_type: str
     assessed_level: Optional[str] = None
     is_admin: Optional[bool] = None
+    beginner_mode: bool = False
 
 class SocialLoginUrl(BaseModel):
     url: str
@@ -40,9 +45,29 @@ class UserProfileResponse(BaseModel):
     email: EmailStr
     name: str
     assessed_level: Optional[str] = None
-    # 👈 [수정] learning_goals 필드를 추가하고, created_at은 선택사항으로 변경합니다.
     learning_goals: Optional[Dict] = None
     created_at: Optional[str] = None
     is_admin: Optional[bool] = None
+    native_language: Optional[str] = None
+    target_language: Optional[str] = None
+    selected_character_name: Optional[str] = None
+    selected_character_image: Optional[str] = None
+    beginner_mode: bool = False
 
     model_config = ConfigDict(from_attributes=True)
+
+class LanguageSettingUpdate(BaseModel):
+    """언어 설정 업데이트 모델"""
+    native_language: str
+    target_language: str
+
+class CharacterUpdate(BaseModel):
+    """캐릭터 설정 업데이트 모델"""
+    selected_character_name: str
+    selected_character_image: str
+
+class NameCheckRequest(BaseModel):
+    name: str
+
+class NameCheckResponse(BaseModel):
+    available: bool
