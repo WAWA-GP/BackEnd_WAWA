@@ -11,6 +11,30 @@ from services import notification_service
 
 router = APIRouter()
 
+# --- 내 알림 설정 조회 API ---
+@router.get("/settings", response_model=notification_model.NotificationSettings)
+async def get_my_notification_settings(
+        db: AsyncClient = Depends(get_db),
+        current_user: dict = Depends(get_current_user)
+):
+    """현재 로그인한 사용자의 알림 설정을 조회합니다."""
+    user_id = current_user.get('user_id')
+    return await notification_service.get_settings_for_user(db, user_id)
+
+# --- 내 알림 설정 수정 API ---
+@router.patch("/settings", response_model=notification_model.NotificationSettings)
+async def update_my_notification_settings(
+        settings_update: notification_model.NotificationSettingsUpdate,
+        db: AsyncClient = Depends(get_db),
+        current_user: dict = Depends(get_current_user)
+):
+    """현재 로그인한 사용자의 알림 설정을 업데이트합니다."""
+    user_id = current_user.get('user_id')
+    updated_settings = await notification_service.update_settings_for_user(db, user_id, settings_update)
+    if updated_settings is None:
+        raise HTTPException(status_code=500, detail="설정 업데이트에 실패했습니다.")
+    return updated_settings
+
 # --- 내 알림 목록 조회 API ---
 @router.get("/", response_model=List[notification_model.NotificationResponse])
 async def read_my_notifications(
