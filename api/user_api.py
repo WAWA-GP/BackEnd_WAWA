@@ -1,4 +1,5 @@
 # '사용자 프로필' 관련 API 엔드포인트를 정의하는 파일입니다.
+<<<<<<< HEAD
 from fastapi import APIRouter, Depends, HTTPException, status
 from supabase import AsyncClient
 from core.database import get_db
@@ -13,10 +14,21 @@ from db.user_crud import update_user_settings
 
 # prefix를 제거하거나 빈 문자열로 설정
 router = APIRouter()  # 👈 prefix="/user" 제거
+=======
+from fastapi import APIRouter, Depends, HTTPException
+from supabase import AsyncClient # 👈 Session 대신 AsyncClient를 import
+from core.database import get_db
+from core.dependencies import get_current_user
+from models import user_model
+from services import user_service
+
+router = APIRouter(prefix="/user")
+>>>>>>> origin/master
 
 # --- 프로필 조회 API ---
 @router.get("/profile", response_model=user_model.UserResponse)
 async def get_user_profile(
+<<<<<<< HEAD
         db: AsyncClient = Depends(get_db),
         current_user: dict = Depends(get_current_user)
 ):
@@ -36,6 +48,11 @@ async def get_user_profile(
     # UserResponse 모델에 맞게 데이터를 반환합니다.
     # user_data에 beginner_mode가 포함되어 있으므로 정상적으로 전달됩니다.
     return user_data
+=======
+        current_user: dict = Depends(get_current_user)
+):
+    return current_user
+>>>>>>> origin/master
 
 # --- 프로필 수정 API ---
 @router.put("/profile", response_model=user_model.UserResponse)
@@ -44,10 +61,15 @@ async def update_user_profile(
         db: AsyncClient = Depends(get_db),
         current_user: dict = Depends(get_current_user)
 ):
+<<<<<<< HEAD
+=======
+    # current_user는 dict이므로 'id' 키로 접근
+>>>>>>> origin/master
     updated_user = await user_service.update_user(db=db, user_id=current_user['id'], user_update=user_update)
     if not updated_user:
         raise HTTPException(status_code=404, detail="User not found")
     return updated_user
+<<<<<<< HEAD
 
 @router.patch("/update-name")
 async def update_user_name(
@@ -132,3 +154,5 @@ async def update_settings_endpoint(
         raise HTTPException(status_code=500, detail="설정 업데이트에 실패했습니다.")
 
     return updated_profile
+=======
+>>>>>>> origin/master

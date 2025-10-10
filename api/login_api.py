@@ -3,7 +3,11 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from supabase import Client as AsyncClient
 from typing import Literal, Any
 from core import security
+<<<<<<< HEAD
 from pydantic import BaseModel, EmailStr, ConfigDict
+=======
+from pydantic import BaseModel
+>>>>>>> origin/master
 
 from core.database import get_db
 from core.dependencies import get_current_user
@@ -13,10 +17,13 @@ from db.login_supabase import get_supabase_client
 from services import login_service
 from models import user_model # user_model 임포트
 from services import user_service # user_service 임포트
+<<<<<<< HEAD
 
 class CodeExchangeRequest(BaseModel):
     auth_code: str
     code_verifier: str
+=======
+>>>>>>> origin/master
 
 router = APIRouter()
 
@@ -148,6 +155,7 @@ async def update_character(
         supabase
     )
 
+<<<<<<< HEAD
 @router.post("/exchange-code", response_model=LoginResponse)
 async def exchange_code_for_session_endpoint(
         request: CodeExchangeRequest,
@@ -162,6 +170,8 @@ async def exchange_code_for_session_endpoint(
     )
 
 
+=======
+>>>>>>> origin/master
 @router.post("/check-name")
 async def check_name_availability(
         name: str = Body(..., embed=True),  # ✅ Body로 직접 받기
@@ -174,4 +184,8 @@ async def check_name_availability(
         raise HTTPException(status_code=400, detail="이름은 2자 이상이어야 합니다.")
 
     is_available = await login_service.check_name_availability(name.strip(), supabase)
+<<<<<<< HEAD
     return {"available": is_available}
+=======
+    return {"available": is_available}
+>>>>>>> origin/master

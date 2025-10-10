@@ -81,4 +81,8 @@ async def add_grammar_session(
         'vocabulary_suggestions': session_data.vocabulary_suggestions # ▼▼▼ [추가]
     }) \
         .execute()
+<<<<<<< HEAD
     return response.data[0]
+=======
+    return response.data[0]
+>>>>>>> origin/master

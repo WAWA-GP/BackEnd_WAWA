@@ -61,4 +61,8 @@ class PronunciationStatistics(BaseModel):
     average_rhythm: float
     average_stress: float
     average_fluency: float
+<<<<<<< HEAD
     recent_improvement: Optional[float] = None
+=======
+    recent_improvement: Optional[float] = None
+>>>>>>> origin/master

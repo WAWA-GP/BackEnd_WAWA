@@ -37,4 +37,8 @@ async def process_submission(db: AsyncClient, user_id: int, submission: leveltes
 
     await user_crud.update_user(db=db, user_id=user_id, update_data={"level": level})
 
+<<<<<<< HEAD
     return result
+=======
+    return result
+>>>>>>> origin/master

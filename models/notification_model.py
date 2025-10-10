@@ -26,4 +26,8 @@ class NotificationSettings(BaseModel):
 class NotificationSettingsUpdate(BaseModel):
     """알림 설정 업데이트(PATCH) 요청을 위한 모델"""
     study_notification: Optional[bool] = None
+<<<<<<< HEAD
     marketing_notification: Optional[bool] = None
+=======
+    marketing_notification: Optional[bool] = None
+>>>>>>> origin/master

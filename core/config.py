@@ -5,7 +5,11 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # JWT 설정
+<<<<<<< HEAD
 SECRET_KEY = "a9cbf27e75b668b629aa083b504f00a23e27c5e2d1e480430b1019a793d164b2"
+=======
+SECRET_KEY = os.getenv("SECRET_KEY")
+>>>>>>> origin/master
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 15))
 REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", 7))

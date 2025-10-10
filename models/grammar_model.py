@@ -27,4 +27,8 @@ class GrammarStatistics(BaseModel):
     correct_count: int
     incorrect_count: int
     accuracy: float
+<<<<<<< HEAD
     recent_accuracy: Optional[float] = None
+=======
+    recent_accuracy: Optional[float] = None
+>>>>>>> origin/master

@@ -74,4 +74,8 @@ async def get_all_words_by_user(db: AsyncClient, user_id: str, status: Optional[
         query = query.eq('is_memorized', False)
 
     response = await query.order('created_at', desc=True).execute()
+<<<<<<< HEAD
     return response.data
+=======
+    return response.data
+>>>>>>> origin/master

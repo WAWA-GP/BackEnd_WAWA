@@ -55,4 +55,8 @@ async def delete_faq(
         current_admin: dict = Depends(get_current_admin)
 ):
     if not await faq_service.delete_faq_by_id(db=db, faq_id=faq_id):
+<<<<<<< HEAD
         raise HTTPException(status_code=404, detail="FAQ not found")
+=======
+        raise HTTPException(status_code=404, detail="FAQ not found")
+>>>>>>> origin/master

@@ -29,7 +29,11 @@ if config.config_file_name is not None:
 # --- 타겟 메타데이터 설정 ---
 # Alembic이 데이터베이스 스키마를 비교할 기준으로 사용할 SQLAlchemy 모델의 메타데이터를 지정합니다.
 # 우리 프로젝트의 모든 SQLAlchemy 모델이 상속받는 Base 객체의 metadata를 가져옵니다.
+<<<<<<< HEAD
 from models import Base
+=======
+from database.models import Base
+>>>>>>> origin/master
 target_metadata = Base.metadata
 # --- 타겟 메타데이터 설정 끝 ---
 

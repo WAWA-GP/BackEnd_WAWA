@@ -1,0 +1,85 @@
+name: Deploy Backend to AWS EC2
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Deploy to EC2
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USERNAME: ${{ secrets.EC2_USERNAME }}
+          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          SECRET_KEY: ${{ secrets.SECRET_KEY }}
+        run: |
+          echo "$EC2_SSH_KEY" > private_key.pem
+          chmod 600 private_key.pem
+          
+          ssh -o StrictHostKeyChecking=no -i private_key.pem $EC2_USERNAME@$EC2_HOST << 'ENDSSH'
+            cd /var/www/backend-api
+          
+            echo "📥 Pulling latest code..."
+            git pull origin master
+          
+            echo "🔧 Activating virtual environment..."
+            source venv/bin/activate
+          
+            echo "📦 Installing dependencies..."
+            pip install -r requirements.txt
+          
+            echo "⚙️ Updating environment variables..."
+            cat > .env << 'EOF'
+          SUPABASE_URL=${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY=${{ secrets.SUPABASE_KEY }}
+          SECRET_KEY=${{ secrets.SECRET_KEY }}
+          ENVIRONMENT=production
+          DEBUG=false
+          HOST=0.0.0.0
+          PORT=8001
+          EOF
+          
+            echo "🧹 Cleaning Python cache..."
+            find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+            find . -name "*.pyc" -delete
+          
+            echo "🔄 Restarting service..."
+            sudo systemctl restart backend-api
+          
+            echo "⏳ Waiting for server to start..."
+            for i in {1..30}; do
+              if curl -f http://localhost:8001/docs 2>/dev/null; then
+                echo "✅ Server is healthy!"
+                break
+              fi
+              echo "Waiting... ($i/30)"
+              sleep 1
+            done
+          
+            echo "🔍 Final health check..."
+            curl -f http://localhost:8001/docs || exit 1
+          
+            echo "🎉 Deployment completed successfully!"
+          ENDSSH
+
+      - name: Cleanup
+        if: always()
+        run: rm -f private_key.pem
+
+      - name: Notify success
+        if: success()
+        run: echo "🎉 Backend deployment successful to http://16.170.225.72"
+
+      - name: Notify failure
+        if: failure()
+        run: echo "❌ Backend deployment failed! Check logs above."

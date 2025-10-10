@@ -50,4 +50,8 @@ async def refresh_access_token(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid refresh token",
         )
+<<<<<<< HEAD
     return new_token
+=======
+    return new_token
+>>>>>>> origin/master

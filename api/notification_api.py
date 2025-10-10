@@ -58,4 +58,8 @@ async def mark_notification_read(
     updated_notification = await notification_service.mark_as_read(db, notification_id, current_user['user_id'])
     if not updated_notification:
         raise HTTPException(status_code=404, detail="알림을 찾을 수 없거나 권한이 없습니다.")
+<<<<<<< HEAD
     return updated_notification
+=======
+    return updated_notification
+>>>>>>> origin/master
