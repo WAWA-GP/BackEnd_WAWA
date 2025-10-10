@@ -10,3 +10,4 @@
 /dataSources.local.xml
 # env 파일
 /.env
+__pycache__/
