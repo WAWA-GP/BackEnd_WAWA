@@ -16,3 +16,14 @@ class NotificationResponse(BaseModel):
 
     class Config:
         from_attributes = True # DB 모델 객체를 Pydantic 모델로 변환
+
+# --- 알림 설정 스키마 ---
+class NotificationSettings(BaseModel):
+    """알림 설정 전체 구조를 정의하는 모델"""
+    study_notification: bool = True
+    marketing_notification: bool = True
+
+class NotificationSettingsUpdate(BaseModel):
+    """알림 설정 업데이트(PATCH) 요청을 위한 모델"""
+    study_notification: Optional[bool] = None
+    marketing_notification: Optional[bool] = None
