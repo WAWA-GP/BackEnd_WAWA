@@ -39,9 +39,4 @@ async def calculate_stats(db: AsyncClient, user_id: str):
             else:
                 streak = 1
             max_streak = max(max_streak, streak)
-
-<<<<<<< HEAD
     return {"total_days": total_days, "longest_streak": max_streak}
-=======
-    return {"total_days": total_days, "longest_streak": max_streak}
->>>>>>> origin/master

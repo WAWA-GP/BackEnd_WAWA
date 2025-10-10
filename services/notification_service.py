@@ -89,8 +89,4 @@ async def update_settings_for_user(db: AsyncClient, user_id: str, settings_updat
     updated_settings = await user_crud.update_notification_settings(db, user_id, current_settings_dict)
     if updated_settings is None:
         return None
-<<<<<<< HEAD
     return notification_model.NotificationSettings(**updated_settings)
-=======
-    return notification_model.NotificationSettings(**updated_settings)
->>>>>>> origin/master

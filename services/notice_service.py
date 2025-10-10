@@ -22,8 +22,4 @@ async def update_existing_notice(db: AsyncClient, notice_id: int, notice_update:
 
 # --- 공지사항 삭제 서비스 ---
 async def delete_notice_by_id(db: AsyncClient, notice_id: int):
-<<<<<<< HEAD
     return await notice_supabase.delete_notice(db=db, notice_id=notice_id)
-=======
-    return await notice_supabase.delete_notice(db=db, notice_id=notice_id)
->>>>>>> origin/master

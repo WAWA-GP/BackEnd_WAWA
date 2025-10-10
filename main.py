@@ -1,8 +1,4 @@
 from fastapi import FastAPI, Request
-<<<<<<< HEAD
-=======
-from fastapi.openapi.utils import get_openapi  # ✅ 이 줄이 있는지 확인!
->>>>>>> origin/master
 from dotenv import load_dotenv
 from api import plan_api, statistics_api, grammar_api, login_api, vocabulary_api, pronunciation_api, study_group_api, admin_api, community_api, notification_api, attendance_api, auth_api, faq_api, leveltest_api, notice_api, user_api
 from services.performance_monitor import performance_monitor
@@ -23,35 +19,6 @@ app = FastAPI(
     version="1.0.0"
 )
 
-<<<<<<< HEAD
-=======
-# ✅ custom_openapi 함수 추가
-def custom_openapi():
-    if app.openapi_schema:
-        return app.openapi_schema
-    
-    openapi_schema = get_openapi(
-        title=app.title,
-        version=app.version,
-        description=app.description,
-        routes=app.routes,
-    )
-    
-    # Bearer Token 인증 설정
-    openapi_schema["components"]["securitySchemes"] = {
-        "BearerAuth": {
-            "type": "http",
-            "scheme": "bearer",
-            "bearerFormat": "JWT",
-        }
-    }
-    
-    app.openapi_schema = openapi_schema
-    return app.openapi_schema
-
-app.openapi = custom_openapi
-
->>>>>>> origin/master
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     print(f"=== Validation Error ===")

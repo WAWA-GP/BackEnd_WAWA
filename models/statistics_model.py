@@ -83,8 +83,4 @@ class ProgressStats(BaseModel):
 class StatisticsResponse(BaseModel):
     overall_statistics: OverallStats
     progress_statistics: Optional[ProgressStats] = None
-<<<<<<< HEAD
     feedback: Optional[str] = None
-=======
-    feedback: Optional[str] = None
->>>>>>> origin/master

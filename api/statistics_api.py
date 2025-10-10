@@ -212,8 +212,4 @@ async def get_daily_feedback(
             "message": "피드백을 불러오는 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.",
             "icon": "error_outline",
             "color": "grey"
-<<<<<<< HEAD
         }
-=======
-        }
->>>>>>> origin/master

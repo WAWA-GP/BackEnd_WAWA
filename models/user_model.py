@@ -1,26 +1,16 @@
 # '사용자' 기능과 관련된 데이터 형식을 Pydantic 모델로 정의하는 파일입니다.
-<<<<<<< HEAD
 from pydantic import BaseModel, Field, validator
 from typing import Optional
 
 class UserSettingsRequest(BaseModel):
     beginner_mode: Optional[bool] = None
 
-=======
-from pydantic import BaseModel
-from typing import Optional
-
->>>>>>> origin/master
 # --- 사용자 생성을 위한 요청 스키마 ---
 # API를 통해 사용자를 생성할 때 받아들일 필드를 정의합니다.
 class UserCreate(BaseModel):
     username: str
     password: str
-<<<<<<< HEAD
     is_admin: bool = False
-=======
-    is_admin: Optional[bool] = False # is_admin은 선택적 필드이며 기본값은 False입니다.
->>>>>>> origin/master
 
 # --- 사용자 정보 수정을 위한 요청 스키마 ---
 # 모든 필드가 Optional이므로, 클라이언트는 수정하고 싶은 필드만 요청에 포함할 수 있습니다.
@@ -34,18 +24,13 @@ class UserUpdate(BaseModel):
 # 클라이언트에게 반환할 사용자 정보의 구조를 정의합니다.
 # password 필드가 없으므로, API 응답에 절대 포함되지 않습니다.
 class UserResponse(BaseModel):
-<<<<<<< HEAD
     # ▼▼▼ [수정] id 타입을 str으로 변경 (UUID 대응) ▼▼▼
     id: str
-=======
-    id: int
->>>>>>> origin/master
     username: str
     is_admin: bool
     is_active: bool
     native_language: Optional[str] = None
     learning_language: Optional[str] = None
-<<<<<<< HEAD
     level: Optional[str] = None # level이 없을 수도 있으므로 Optional로 변경
 
     # ▼▼▼ [추가] beginner_mode 필드를 여기에 추가합니다. ▼▼"
@@ -81,14 +66,3 @@ class PasswordUpdate(BaseModel):
 # 회원 탈퇴 요청 모델
 class AccountDelete(BaseModel):
     password: str = Field(..., description="계정 확인을 위한 비밀번호")
-=======
-    level: str
-
-    class Config:
-        # orm_mode=True 설정은 SQLAlchemy ORM 객체를 이 Pydantic 모델로 자동으로 변환할 수 있게 해줍니다.
-        orm_mode = True
-
-class AccountDelete(BaseModel):
-    password: str
-    reason: Optional[str] = None
->>>>>>> origin/master

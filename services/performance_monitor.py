@@ -140,8 +140,4 @@ def measure_performance(feature_name: str):
                 performance_monitor.record_execution_time(feature_name, duration_ms)
                 return result
             return sync_wrapper
-<<<<<<< HEAD
     return decorator
-=======
-    return decorator
->>>>>>> origin/master

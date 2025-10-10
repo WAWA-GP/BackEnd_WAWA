@@ -169,8 +169,4 @@ async def get_latest_plan(
     if not latest_plan:
         raise HTTPException(status_code=404, detail="아직 생성된 학습 계획이 없습니다.")
 
-<<<<<<< HEAD
     return latest_plan
-=======
-    return latest_plan
->>>>>>> origin/master

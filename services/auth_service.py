@@ -38,8 +38,4 @@ async def refresh_token(db: AsyncClient, refresh_token: str):
         return None
 
     access_token = security.create_access_token(data={"sub": user['username']})
-<<<<<<< HEAD
     return {"access_token": access_token, "token_type": "bearer"}
-=======
-    return {"access_token": access_token, "token_type": "bearer"}
->>>>>>> origin/master

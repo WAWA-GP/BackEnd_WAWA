@@ -45,8 +45,4 @@ class PyInstrumentProfilerMiddleware(BaseHTTPMiddleware):
         with open(filepath, "w", encoding="utf-8") as f:
             f.write(profiler.output_html())
 
-<<<<<<< HEAD
         return response
-=======
-        return response
->>>>>>> origin/master

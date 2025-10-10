@@ -14,8 +14,4 @@ async def get_db() -> AsyncClient:
     API 엔드포인트에서 사용할 Supabase 비동기 클라이언트를 생성하고 반환하는 의존성 함수입니다.
     """
     supabase: AsyncClient = await create_async_client(url, key)
-<<<<<<< HEAD
     return supabase
-=======
-    return supabase
->>>>>>> origin/master

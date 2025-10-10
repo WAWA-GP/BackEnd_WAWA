@@ -14,8 +14,4 @@ async def create_level_test_result(db: AsyncClient, user_id: int, score: int, le
         "level": level
     }
     response = await db.table("level_test_results").insert(result_data).execute()
-<<<<<<< HEAD
     return response.data[0] if response.data else None
-=======
-    return response.data[0] if response.data else None
->>>>>>> origin/master

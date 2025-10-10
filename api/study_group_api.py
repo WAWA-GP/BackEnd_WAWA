@@ -1,16 +1,8 @@
-<<<<<<< HEAD
 from fastapi import APIRouter, HTTPException, Depends, status
 from core.dependencies import get_current_user
 from core.database import get_db
 from supabase import AsyncClient
 from models.study_group_model import StudyGroupCreate, StudyGroupResponse, GroupMemberResponse, GroupMessageCreate, GroupMessageResponse, JoinRequestResponse
-=======
-from fastapi import APIRouter, HTTPException, Depends
-from core.dependencies import get_current_user
-from core.database import get_db
-from supabase import AsyncClient
-from models.study_group_model import StudyGroupCreate, StudyGroupResponse, GroupMemberResponse
->>>>>>> origin/master
 from db import study_group_supabase
 from typing import List
 
@@ -25,22 +17,15 @@ async def create_study_group(
     """학습 그룹 생성"""
     try:
         user_id = current_user.get('user_id')
-<<<<<<< HEAD
         user_name = current_user.get('name') # 생성자 이름을 가져옵니다.
-=======
->>>>>>> origin/master
 
         group_data = await study_group_supabase.create_study_group(
             db=db,
             name=group.name,
             description=group.description,
             created_by=user_id,
-<<<<<<< HEAD
             max_members=group.max_members,
             requires_approval=group.requires_approval
-=======
-            max_members=group.max_members
->>>>>>> origin/master
         )
 
         return StudyGroupResponse(
@@ -48,19 +33,12 @@ async def create_study_group(
             name=group_data['name'],
             description=group_data['description'],
             created_by=group_data['created_by'],
-<<<<<<< HEAD
             creator_name=user_name, # 여기서 생성자 이름을 넣어줍니다.
-=======
-            creator_name=current_user.get('name'),
->>>>>>> origin/master
             max_members=group_data['max_members'],
             member_count=1,
             is_member=True,
             is_owner=True,
-<<<<<<< HEAD
             requires_approval=group_data['requires_approval'],
-=======
->>>>>>> origin/master
             created_at=group_data['created_at']
         )
     except Exception as e:
@@ -75,10 +53,6 @@ async def get_study_groups(
     try:
         user_id = current_user.get('user_id')
         groups = await study_group_supabase.get_all_study_groups(db, user_id)
-<<<<<<< HEAD
-=======
-
->>>>>>> origin/master
         return [StudyGroupResponse(**group) for group in groups]
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -92,13 +66,8 @@ async def join_group(
     """그룹 참여"""
     try:
         user_id = current_user.get('user_id')
-<<<<<<< HEAD
         message = await study_group_supabase.join_study_group(db, group_id, user_id)
         return {"message": message}
-=======
-        await study_group_supabase.join_study_group(db, group_id, user_id)
-        return {"message": "그룹에 참여했습니다."}
->>>>>>> origin/master
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -119,12 +88,8 @@ async def leave_group(
 @router.get("/{group_id}/members", response_model=List[GroupMemberResponse])
 async def get_group_members(
         group_id: int,
-<<<<<<< HEAD
         # 그룹 멤버는 누구나 볼 수 있으므로 current_user 인증이 필수는 아닐 수 있습니다.
         # 만약 그룹 멤버만 보게 하려면 Depends(get_current_user)를 유지합니다.
-=======
-        current_user: dict = Depends(get_current_user),
->>>>>>> origin/master
         db: AsyncClient = Depends(get_db)
 ):
     """그룹 멤버 조회"""
@@ -140,18 +105,13 @@ async def delete_group(
         current_user: dict = Depends(get_current_user),
         db: AsyncClient = Depends(get_db)
 ):
-<<<<<<< HEAD
     """그룹 삭제 (owner 전용)"""
-=======
-    """그룹 삭제"""
->>>>>>> origin/master
     try:
         user_id = current_user.get('user_id')
         await study_group_supabase.delete_study_group(db, group_id, user_id)
         return {"message": "그룹이 삭제되었습니다."}
     except Exception as e:
         raise HTTPException(status_code=403, detail=str(e))
-<<<<<<< HEAD
 
 # ==========================================================
 # ▼▼▼ 여기가 정리된 올바른 메시지 관련 함수들입니다. ▼▼▼
@@ -254,5 +214,3 @@ async def reject_request(
         return {"message": "가입 요청을 거절했습니다."}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
-=======
->>>>>>> origin/master

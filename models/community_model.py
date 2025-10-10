@@ -61,8 +61,4 @@ class ReportResponse(ReportBase):
     id: int
     user_id: str
     created_at: datetime
-<<<<<<< HEAD
     model_config = ConfigDict(from_attributes=True)
-=======
-    model_config = ConfigDict(from_attributes=True)
->>>>>>> origin/master

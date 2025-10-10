@@ -5,11 +5,7 @@ from datetime import date, datetime
 # --- 출석 기록 API 응답 스키마 ---
 class AttendanceResponse(BaseModel):
     id: int
-<<<<<<< HEAD
     user_id: str
-=======
-    user_id: int
->>>>>>> origin/master
     date: date
     created_at: datetime
 

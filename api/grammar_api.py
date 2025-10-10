@@ -57,8 +57,4 @@ async def add_grammar_history_route(
         return {"message": "Grammar practice history saved successfully"}
     except Exception as e:
         print(f"문법 이력 저장 오류: {e}")
-<<<<<<< HEAD
         raise HTTPException(status_code=500, detail=str(e))
-=======
-        raise HTTPException(status_code=500, detail=str(e))
->>>>>>> origin/master

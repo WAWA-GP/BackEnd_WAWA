@@ -197,7 +197,6 @@ async def auto_login_with_token(token: str, supabase: AsyncClient):
 
 @measure_performance("소셜 로그인 URL 생성")
 async def get_social_login_url(provider: str, supabase: AsyncClient) -> dict:
-<<<<<<< HEAD
     # 1. code_verifier를 직접 생성합니다. (충분히 무작위적인 안전한 문자열)
     code_verifier = base64.urlsafe_b64encode(os.urandom(40)).decode("utf-8").rstrip("=")
 
@@ -297,103 +296,6 @@ async def handle_social_callback(provider: str, code: str, supabase: AsyncClient
         }
 
     except Exception as e:
-=======
-    try:
-        data = await supabase.auth.sign_in_with_oauth({
-            "provider": provider,
-            "options": {
-                "redirect_to": "io.supabase.wawa://auth/callback"
-            }
-        })
-
-        if not data or not data.url:
-            raise HTTPException(
-                status_code=500,
-                detail=f"{provider} 로그인 URL 생성 실패"
-            )
-
-        print(f"구글 로그인 URL: {data.url}")
-        return {"url": data.url}
-
-    except Exception as e:
-        print(f"구글 로그인 오류: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@measure_performance("추가 정보 업데이트")
-async def update_additional_user_info(user_id: str, user_update: UserProfileUpdate, supabase: AsyncClient):
-    """사용자 추가 정보 업데이트 시 발생할 수 있는 오류들을 세분화하여 처리합니다."""
-    try:
-        update_data = user_update.model_dump(exclude_unset=True)
-        if not update_data:
-            raise HTTPException(status_code=400, detail="업데이트할 정보가 없습니다.")
-
-        if "email" in update_data:
-            existing_user = await supabase.table("user_account").select("user_id").eq("email", update_data["email"]).neq("user_id", user_id).maybe_single().execute()
-            if existing_user.data:
-                # [수정] 이메일 중복 시 409 Conflict 사용
-                raise HTTPException(status_code=409, detail="이미 사용 중인 이메일입니다.")
-
-        result = await supabase.table("user_account").update(update_data).eq("user_id", user_id).execute()
-
-        if not result.data:
-            # [수정] 사용자를 찾지 못한 경우 404 Not Found 사용
-            raise HTTPException(status_code=404, detail="업데이트할 사용자를 찾을 수 없습니다.")
-
-        return {"message": "사용자 정보가 성공적으로 업데이트되었습니다."}
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"추가 정보 업데이트 중 오류: {e}")
-        raise HTTPException(status_code=500, detail="정보 업데이트 중 문제가 발생했습니다.")
-
-@measure_performance("소셜 로그인 처리")
-async def handle_social_callback(provider: str, code: str, supabase: AsyncClient):
-    """소셜 로그인 콜백 처리 - 이메일 없이도 진행"""
-    try:
-        auth_response = await supabase.auth.exchange_code_for_session({
-            "auth_code": code
-        })
-
-        if not auth_response.session or not auth_response.user:
-            raise HTTPException(status_code=400, detail="세션 생성 실패")
-
-        user = auth_response.user
-        user_id = str(user.id)
-
-        # 카카오는 닉네임만 제공, 이메일은 제공하지 않음
-        nickname = user.user_metadata.get("full_name") or \
-                   user.user_metadata.get("name") or \
-                   user.user_metadata.get("preferred_username") or \
-                   f"user_{user_id[:8]}"
-
-        # 임시 이메일 생성 (실제 이메일 아님)
-        temp_email = f"kakao_{user_id}@temp.placeholder"
-
-        # 기존 사용자 확인
-        existing = await supabase.table("user_account") \
-            .select("user_id, email, name") \
-            .eq("user_id", user_id) \
-            .maybe_single() \
-            .execute()
-
-        if not existing.data:
-            # 신규 사용자 생성
-            await supabase.table("user_account").insert({
-                "user_id": user_id,
-                "email": temp_email,
-                "name": nickname,
-                "is_admin": False
-            }).execute()
-            print(f"신규 카카오 사용자: {nickname} (임시이메일: {temp_email})")
-
-        return {
-            "access_token": auth_response.session.access_token,
-            "token_type": "bearer",
-            "needs_additional_info": True  # 항상 추가 정보 필요
-        }
-
-    except Exception as e:
->>>>>>> origin/master
         print(f"카카오 로그인 오류: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -440,7 +342,6 @@ async def update_user_character(
             status_code=500,
             detail=f"캐릭터 설정 중 오류 발생: {str(e)}"
         )
-<<<<<<< HEAD
 
 async def exchange_code_for_session(auth_code: str, code_verifier: str, supabase: AsyncClient): # code_verifier 파라미터 추가
     """전달받은 auth_code와 code_verifier를 사용해 Supabase로부터 세션을 받아옵니다."""
@@ -480,5 +381,3 @@ async def exchange_code_for_session(auth_code: str, code_verifier: str, supabase
     except Exception as e:
         logger.error(f"코드 교환 중 알 수 없는 오류: {e}")
         raise HTTPException(status_code=500, detail="세션 생성 중 서버 오류가 발생했습니다.")
-=======
->>>>>>> origin/master

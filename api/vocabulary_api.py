@@ -166,8 +166,4 @@ async def get_vocabulary_analysis(
             "not_memorized_count": 0,
             "review_accuracy": 0.0,
         }
-<<<<<<< HEAD
     return stats
-=======
-    return stats
->>>>>>> origin/master

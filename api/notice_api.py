@@ -58,8 +58,4 @@ async def delete_notice(
         current_admin: dict = Depends(get_current_admin)
 ):
     if not await notice_service.delete_notice_by_id(db=db, notice_id=notice_id):
-<<<<<<< HEAD
         raise HTTPException(status_code=404, detail="Notice not found")
-=======
-        raise HTTPException(status_code=404, detail="Notice not found")
->>>>>>> origin/master
