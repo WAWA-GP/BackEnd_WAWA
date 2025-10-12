@@ -1,14 +1,15 @@
 # api/vocabulary_api.py
 
+from typing import List, Optional
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from supabase import AsyncClient
-from typing import List, Optional
 
 from core.database import get_db
 from core.dependencies import get_current_user
 from db import vocabulary_supabase
-from services import vocabulary_service
 from models import vocabulary_model
+from services import vocabulary_service
 
 router = APIRouter()
 
@@ -96,8 +97,13 @@ async def add_words_batch(
         current_user: dict = Depends(get_current_user)
 ):
     # TODO: 사용자가 해당 단어장의 소유자인지 확인하는 로직 추가
+
+    # 서비스 함수를 직접 호출하고 작업이 끝날 때까지 기다립니다.
     await vocabulary_service.add_new_words_batch(db, words_in, wordbook_id)
-    return {"message": f"{len(words_in.words)} words added successfully"}
+
+    # 작업 완료 후 성공 메시지를 반환합니다.
+    return {"message": f"{len(words_in.words)}개의 단어가 성공적으로 추가되었습니다."}
+
 
 @router.delete("/wordbooks/{wordbook_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_wordbook(
@@ -167,3 +173,27 @@ async def get_vocabulary_analysis(
             "review_accuracy": 0.0,
         }
     return stats
+
+# --- 단어 검색 API ---
+@router.get("/search", response_model=List[vocabulary_model.UserWordResponse])
+async def search_words(
+        query: str,
+        db: AsyncClient = Depends(get_db),
+        current_user: dict = Depends(get_current_user)
+):
+    user_id = current_user.get("user_id")
+    return await vocabulary_service.search_user_words(db, user_id, query)
+
+
+# --- 단일 단어 상세 조회 API ---
+@router.get("/words/{word_id}/detail", response_model=vocabulary_model.UserWordResponse)
+async def get_word_detail(
+        word_id: int,
+        db: AsyncClient = Depends(get_db),
+        current_user: dict = Depends(get_current_user)
+):
+    user_id = current_user.get("user_id")
+    word = await vocabulary_service.get_word_detail(db, user_id, word_id)
+    if not word:
+        raise HTTPException(status_code=404, detail="단어를 찾을 수 없습니다.")
+    return word

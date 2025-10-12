@@ -1,9 +1,10 @@
 # db/user_crud.py
 
-from supabase import AsyncClient
-from models import user_model
 import logging
 from typing import Dict, Any, Optional
+
+from supabase import AsyncClient
+
 
 # --- 사용자 조회 (Username/Email 기준) ---
 async def get_user_by_username(db: AsyncClient, username: str):
@@ -103,21 +104,34 @@ async def update_notification_settings(db: AsyncClient, user_id: str, settings: 
     return None
 
 async def update_user_settings(db: AsyncClient, user_id: str, settings: Dict) -> Optional[Dict]:
-    """사용자 ID를 기준으로 특정 설정 값을 업데이트합니다."""
+    """사용자 ID를 기준으로 특정 설정 값을 업데이트하고, 업데이트된 전체 프로필을 반환합니다."""
+    print("\n--- [CRUD DEBUG] update_user_settings 함수가 호출되었습니다. ---")
+    print(f"[CRUD DEBUG] 전달받은 user_id: {user_id} (타입: {type(user_id)})")
+    print(f"[CRUD DEBUG] 전달받은 settings: {settings}")
+
     try:
-        # 1. 먼저 데이터를 업데이트합니다. (select 없이)
+        # 1. 데이터를 업데이트하는 쿼리를 실행합니다.
+        print(f"[CRUD DEBUG] user_account 테이블에서 user_id='{user_id}'인 행을 다음 데이터로 업데이트 시도: {settings}")
         update_response = await db.table("user_account").update(settings).eq("user_id", user_id).execute()
 
-        # 업데이트된 행이 있는지 확인 (선택 사항이지만 더 안전함)
+        # [핵심] Supabase로부터 받은 실제 응답을 확인합니다.
+        print(f"[CRUD DEBUG] Supabase UPDATE 응답 (Raw): {update_response}")
+
         if not update_response.data:
-            print("업데이트할 사용자를 찾지 못했습니다.")
-            return None
+            print("[CRUD DEBUG] 경고: UPDATE 응답의 'data' 필드가 비어있습니다. 업데이트된 행이 없을 수 있습니다 (user_id 불일치 의심).")
 
-        # 2. 업데이트가 성공하면, 별도의 쿼리로 수정된 사용자 정보를 다시 조회하여 반환합니다.
+        # 2. 업데이트 후, 확인을 위해 사용자 정보를 다시 조회합니다.
+        print(f"[CRUD DEBUG] 확인을 위해 user_id='{user_id}'인 행을 다시 조회합니다...")
         select_response = await db.table("user_account").select("*").eq("user_id", user_id).single().execute()
+        print(f"[CRUD DEBUG] Supabase SELECT 응답 (Raw): {select_response}")
 
+        print("--- [CRUD DEBUG] update_user_settings 함수가 정상적으로 종료되었습니다. ---\n")
         return select_response.data
 
     except Exception as e:
-        print(f"사용자 설정 업데이트 중 오류 발생: {e}")
+        print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+        print(f"!!! [CRUD DEBUG] update_user_settings 함수에서 심각한 오류 발생: {e}")
+        import traceback
+        traceback.print_exc()
+        print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n")
         return None

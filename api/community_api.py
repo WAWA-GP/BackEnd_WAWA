@@ -1,13 +1,14 @@
 # api/community_api.py
 
+from typing import List, Optional
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from supabase import AsyncClient
-from typing import List
 
 from core.database import get_db
 from core.dependencies import get_current_user, get_current_admin
-from services import community_service
 from models import community_model
+from services import community_service
 
 router = APIRouter()
 
@@ -22,8 +23,13 @@ async def create_post(
     return await community_service.create_new_post(db, post_in, user_id)
 
 @router.get("/posts", response_model=List[community_model.PostResponse])
-async def list_posts(category: str, db: AsyncClient = Depends(get_db)):
-    return await community_service.get_all_posts(db, category)
+async def list_posts(
+        category: str,
+        search: Optional[str] = None, # 👈 검색어를 받을 수 있도록 search 파라미터 추가
+        db: AsyncClient = Depends(get_db)
+):
+    # 👈 community_service로 search 파라미터 전달
+    return await community_service.get_all_posts(db, category, search)
 
 @router.get("/posts/{post_id}", response_model=community_model.PostResponse)
 async def get_post(post_id: int, db: AsyncClient = Depends(get_db)):

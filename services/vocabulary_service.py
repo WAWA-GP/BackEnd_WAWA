@@ -1,9 +1,11 @@
 # services/vocabulary_service.py
 
+from fastapi import HTTPException
 from supabase import AsyncClient
+
 from db import vocabulary_supabase
 from models import vocabulary_model
-from fastapi import HTTPException
+
 
 # --- Wordbook ---
 async def create_new_wordbook(db: AsyncClient, name: str, user_id: str):
@@ -51,7 +53,9 @@ async def remove_word_from_wordbook(db: AsyncClient, word_id: int):
     return deleted_word
 
 async def add_new_words_batch(db: AsyncClient, words_in: vocabulary_model.UserWordBatchCreate, wordbook_id: int):
-    # 각 단어 데이터에 wordbook_id를 추가해줍니다.
+    """
+    (단순화된 버전) 앱에서 받은 단어 목록을 DB에 그대로 전달하여 한 번에 저장합니다.
+    """
     words_to_insert = []
     for word in words_in.words:
         word_dict = word.model_dump()
@@ -59,6 +63,7 @@ async def add_new_words_batch(db: AsyncClient, words_in: vocabulary_model.UserWo
         words_to_insert.append(word_dict)
 
     return await vocabulary_supabase.add_words_to_wordbook_batch(db, words_to_insert)
+
 
 async def delete_user_wordbook(db: AsyncClient, wordbook_id: int, user_id: str):
     # [수정] Supabase 함수가 삭제된 행의 수를 반환한다고 가정하고, 결과에 따라 처리
@@ -73,3 +78,16 @@ async def toggle_word_favorite(db: AsyncClient, word_id: int, is_favorite: bool)
 
 async def get_all_favorite_words(db: AsyncClient, user_id: str):
     return await vocabulary_supabase.get_favorite_words(db, user_id)
+
+async def get_word_stats(db: AsyncClient, user_id: str):
+    return await vocabulary_supabase.get_word_stats_by_user(db, user_id)
+
+async def get_all_words(db: AsyncClient, user_id: str, status: str | None):
+    return await vocabulary_supabase.get_all_words_by_user(db, user_id, status)
+
+# --- 검색 및 상세 조회 ---
+async def search_user_words(db: AsyncClient, user_id: str, query: str):
+    return await vocabulary_supabase.search_user_words(db, user_id, query)
+
+async def get_word_detail(db: AsyncClient, user_id: str, word_id: int):
+    return await vocabulary_supabase.get_user_word_detail(db, user_id, word_id)

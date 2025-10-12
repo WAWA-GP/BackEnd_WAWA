@@ -1,7 +1,11 @@
 # db/community_supabase.py
 
+from typing import Optional
+
 from supabase import AsyncClient
+
 from models import community_model
+
 
 # ====== 게시글 (Post) ======
 async def create_post(db: AsyncClient, post: community_model.PostCreate, user_id: str):
@@ -13,8 +17,15 @@ async def create_post(db: AsyncClient, post: community_model.PostCreate, user_id
     select_response = await db.table("posts").select("*, user_account(name)").eq("id", new_post_id).single().execute()
     return select_response.data
 
-async def get_all_posts(db: AsyncClient, category: str):
-    response = await db.table("posts").select("*, user_account(name)").eq("is_deleted", False).eq("category", category).order("created_at", desc=True).execute()
+async def get_all_posts(db: AsyncClient, category: str, search: Optional[str] = None):
+    query = db.table("posts").select("*, user_account(name)") \
+        .eq("is_deleted", False) \
+        .eq("category", category)
+
+    if search:
+        query = query.or_(f"title.ilike.%{search}%,content.ilike.%{search}%")
+
+    response = await query.order("created_at", desc=True).execute()
     return response.data
 
 async def get_post_by_id(db: AsyncClient, post_id: int):

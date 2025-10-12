@@ -1,16 +1,20 @@
 # services/community_service.py
 
+from typing import Optional
+
+from fastapi import HTTPException
 from supabase import AsyncClient
+
 from db import community_supabase
 from models import community_model
-from fastapi import HTTPException
+
 
 # ====== 게시글 (Post) ======
 async def create_new_post(db: AsyncClient, post: community_model.PostCreate, user_id: str):
     return await community_supabase.create_post(db, post, user_id)
 
-async def get_all_posts(db: AsyncClient, category: str):
-    return await community_supabase.get_all_posts(db, category)
+async def get_all_posts(db: AsyncClient, category: str, search: Optional[str] = None):
+    return await community_supabase.get_all_posts(db, category, search)
 
 async def get_post_by_id(db: AsyncClient, post_id: int):
     post = await community_supabase.get_post_by_id(db, post_id)

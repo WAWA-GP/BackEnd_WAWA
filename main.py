@@ -1,13 +1,12 @@
-from fastapi import FastAPI, Request
 from dotenv import load_dotenv
-from api import plan_api, statistics_api, grammar_api, login_api, vocabulary_api, pronunciation_api, study_group_api, admin_api, community_api, notification_api, attendance_api, auth_api, faq_api, leveltest_api, notice_api, user_api
-from services.performance_monitor import performance_monitor
-from profiler_middleware import PyInstrumentProfilerMiddleware
-from supabase import create_client, AsyncClient
-import logging
-from services import notification_service
+from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+
+from api import plan_api, statistics_api, grammar_api, login_api, challenge_api, vocabulary_api, pronunciation_api, \
+    study_group_api, admin_api, community_api, notification_api, attendance_api, faq_api, leveltest_api, notice_api, \
+    user_api
+from services.performance_monitor import performance_monitor
 
 # .env 파일에서 환경 변수 로드
 load_dotenv()
@@ -134,6 +133,13 @@ app.include_router(
     vocabulary_api.router,
     prefix="/api/vocabulary",
     tags=["Vocabulary"]
+)
+
+# 16. 학습 그룹 내 챌린지
+app.include_router(
+    challenge_api.router,
+    prefix="/api/challenges",
+    tags=["Challenges"]
 )
 
 # 서버 정상 동작 확인

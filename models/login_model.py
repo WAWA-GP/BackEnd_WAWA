@@ -1,5 +1,6 @@
-from pydantic import BaseModel, EmailStr, ConfigDict
 from typing import Optional, Dict
+
+from pydantic import BaseModel, EmailStr, ConfigDict
 
 
 # Pydantic V2에서는 Union 타입을 | (파이프)로 표현하는 것을 권장합니다.
@@ -72,3 +73,7 @@ class NameCheckRequest(BaseModel):
 
 class NameCheckResponse(BaseModel):
     available: bool
+
+class CodeExchangeRequest(BaseModel):
+    auth_code: str
+    code_verifier: str

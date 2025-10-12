@@ -1,15 +1,16 @@
 # '사용자 프로필' 관련 API 엔드포인트를 정의하는 파일입니다.
-from fastapi import APIRouter, Depends, HTTPException, status
+import logging
+
+from fastapi import APIRouter, Depends, HTTPException
 from supabase import AsyncClient
+
 from core.database import get_db
 from core.dependencies import get_current_user
 from db import user_crud
 from models import user_model
 from models.login_model import UserProfileResponse
-from services import user_service
-import logging
 from models.user_model import UserSettingsRequest
-from db.user_crud import update_user_settings
+from services import user_service
 
 # prefix를 제거하거나 빈 문자열로 설정
 router = APIRouter()  # 👈 prefix="/user" 제거
@@ -120,15 +121,28 @@ async def update_settings_endpoint(
         current_user: dict = Depends(get_current_user),
         db: AsyncClient = Depends(get_db)
 ):
-    """사용자의 설정을 업데이트합니다 (예: 초보자 모드)."""
-    user_id = current_user.get('user_id')
+    """사용자의 설정을 업데이트합니다 (예: 초보자 모드, 캐릭터)."""
+    print("\n--- [API DEBUG] /settings 엔드포인트가 호출되었습니다. ---")
+
+    # [디버그] 토큰에서 어떤 키로 user_id가 오는지 확인 (user_id, id 등)
+    user_id = current_user.get('user_id') or current_user.get('id')
+    print(f"[API DEBUG] 토큰에서 추출된 user_id: {user_id}")
     if not user_id:
         raise HTTPException(status_code=401, detail="인증되지 않은 사용자입니다.")
 
-    # settings.model_dump(exclude_unset=True)는 None이 아닌 값만 딕셔너리로 만듭니다.
-    updated_profile = await update_user_settings(db, user_id, settings.model_dump(exclude_unset=True))
+    update_values = settings.model_dump(exclude_unset=True)
+    print(f"[API DEBUG] 데이터베이스로 전달될 업데이트 값: {update_values}")
+
+    if not update_values:
+        print("[API DEBUG] 업데이트할 값이 없으므로 현재 프로필을 반환합니다.")
+        return await user_crud.get_user(db, user_id)
+
+    updated_profile = await user_crud.update_user_settings(db, user_id, update_values)
 
     if not updated_profile:
+        print("[API DEBUG] CRUD 함수가 None을 반환하여 500 오류를 발생시킵니다.")
         raise HTTPException(status_code=500, detail="설정 업데이트에 실패했습니다.")
 
+    print(f"[API DEBUG] 최종적으로 앱에 반환될 프로필: {updated_profile}")
+    print("--- [API DEBUG] /settings 엔드포인트가 정상적으로 종료되었습니다. ---\n")
     return updated_profile

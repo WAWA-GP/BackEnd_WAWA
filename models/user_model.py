@@ -1,9 +1,13 @@
 # '사용자' 기능과 관련된 데이터 형식을 Pydantic 모델로 정의하는 파일입니다.
-from pydantic import BaseModel, Field, validator
 from typing import Optional
+
+from pydantic import BaseModel, Field, validator
+
 
 class UserSettingsRequest(BaseModel):
     beginner_mode: Optional[bool] = None
+    selected_character_name: Optional[str] = None
+    selected_character_image: Optional[str] = None
 
 # --- 사용자 생성을 위한 요청 스키마 ---
 # API를 통해 사용자를 생성할 때 받아들일 필드를 정의합니다.
