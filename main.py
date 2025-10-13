@@ -3,7 +3,7 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
-from api import plan_api, statistics_api, grammar_api, login_api, challenge_api, vocabulary_api, pronunciation_api, \
+from api import point_api, plan_api, statistics_api, grammar_api, login_api, challenge_api, vocabulary_api, pronunciation_api, \
     study_group_api, admin_api, community_api, notification_api, attendance_api, faq_api, leveltest_api, notice_api, \
     user_api
 from services.performance_monitor import performance_monitor
@@ -30,6 +30,13 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     )
 
 # --- API 라우터 ---
+
+# 16. 포인트 api
+app.include_router(
+    point_api.router,
+    prefix="/points",
+    tags=["Points"]
+)
 
 # 15. 문법 연습 이력 API
 app.include_router(
