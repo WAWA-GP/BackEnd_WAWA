@@ -28,6 +28,7 @@ async def get_grammar_history_route(
         raise HTTPException(status_code=500, detail=str(e))
 
 # 문법 연습 통계 조회 API (변경 없음)
+# 문법 연습 통계 조회 API (변경 없음)
 @router.get("/statistics", response_model=GrammarStatistics)
 async def get_grammar_statistics_route(
         current_user: dict = Depends(get_current_user),
@@ -57,4 +58,36 @@ async def add_grammar_history_route(
         return {"message": "Grammar practice history saved successfully"}
     except Exception as e:
         print(f"문법 이력 저장 오류: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# 즐겨찾기 상태 업데이트 API
+@router.patch("/history/{history_id}/favorite", status_code=200)
+async def update_grammar_favorite_status_route(
+        history_id: int,
+        is_favorite: bool = Query(...),
+        current_user: dict = Depends(get_current_user),
+        db: AsyncClient = Depends(get_db),
+):
+    """특정 문법 학습 이력의 즐겨찾기 상태를 업데이트합니다."""
+    try:
+        user_id = current_user.get('user_id')
+        updated_item = await grammar_supabase.update_favorite_status(db, user_id, history_id, is_favorite)
+        if not updated_item:
+            raise HTTPException(status_code=404, detail="History not found or permission denied")
+        return {"message": "Favorite status updated successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# 즐겨찾기 목록 조회 API
+@router.get("/favorites", response_model=List[GrammarHistoryResponse])
+async def get_favorite_grammar_history_route(
+        current_user: dict = Depends(get_current_user),
+        db: AsyncClient = Depends(get_db)
+):
+    """현재 사용자가 즐겨찾기한 문법 이력 목록을 조회합니다."""
+    try:
+        user_id = current_user.get('user_id')
+        favorites = await grammar_supabase.get_favorite_grammar_history(db, user_id)
+        return favorites
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

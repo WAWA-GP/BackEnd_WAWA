@@ -1,7 +1,7 @@
 # db/grammar_supabase.py
 
 from supabase import AsyncClient
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from models.grammar_model import GrammarSessionCreate
 
 # 사용자의 문법 연습 이력 조회
@@ -10,7 +10,7 @@ async def get_grammar_history(
 ) -> List[Dict[str, Any]]:
     """사용자의 문법 연습 이력을 최신순으로 조회합니다."""
     response = await db.table('grammar_sessions') \
-        .select('id, transcribed_text, corrected_text, grammar_feedback, vocabulary_suggestions, created_at') \
+        .select('id, transcribed_text, corrected_text, grammar_feedback, vocabulary_suggestions, created_at, is_favorite') \
         .eq('user_id', user_id) \
         .order('created_at', desc=True) \
         .limit(limit) \
@@ -82,3 +82,28 @@ async def add_grammar_session(
     }) \
         .execute()
     return response.data[0]
+
+# ▼▼▼ [신규] 즐겨찾기 상태 업데이트 함수 ▼▼▼
+async def update_favorite_status(
+        db: AsyncClient, user_id: str, history_id: int, is_favorite: bool
+) -> Optional[Dict[str, Any]]:
+    """ID와 사용자 ID가 일치하는 문법 이력의 is_favorite 값을 업데이트합니다."""
+    response = await db.table('grammar_sessions') \
+        .update({'is_favorite': is_favorite}) \
+        .eq('id', history_id) \
+        .eq('user_id', user_id) \
+        .execute()
+    return response.data[0] if response.data else None
+
+# ▼▼▼ [신규] 즐겨찾기 목록 조회 함수 ▼▼▼
+async def get_favorite_grammar_history(
+        db: AsyncClient, user_id: str
+) -> List[Dict[str, Any]]:
+    """사용자가 즐겨찾기한 문법 이력 목록을 조회합니다."""
+    response = await db.table('grammar_sessions') \
+        .select('id, transcribed_text, corrected_text, grammar_feedback, vocabulary_suggestions, created_at, is_favorite') \
+        .eq('user_id', user_id) \
+        .eq('is_favorite', True) \
+        .order('created_at', desc=True) \
+        .execute()
+    return response.data

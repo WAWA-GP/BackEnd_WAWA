@@ -1,12 +1,12 @@
-from typing import List
+from typing import List, Optional
 
-from fastapi import APIRouter, HTTPException, Depends, status
+from fastapi import APIRouter, HTTPException, Depends, status, UploadFile, File, Form, Query
 from supabase import AsyncClient
 
 from core.database import get_db
 from core.dependencies import get_current_user
 from db import study_group_supabase
-from models.challenge_model import ChallengeCreate, ChallengeResponse, ProgressLogRequest, ChallengeUpdate
+from models.challenge_model import ChallengeCreate, ChallengeResponse, ProgressLogRequest, ChallengeUpdate, ChallengeSubmissionResponse, SubmissionCreate
 from models.study_group_model import StudyGroupCreate, StudyGroupResponse, GroupMemberResponse, GroupMessageCreate, \
     GroupMessageResponse, JoinRequestResponse
 
@@ -236,7 +236,6 @@ async def create_challenge(
         db: AsyncClient = Depends(get_db),
         current_user: dict = Depends(get_current_user)
 ):
-    """그룹에 새로운 챌린지를 생성합니다 (그룹 멤버 전용).""" # 설명 수정
     user_id = current_user.get('user_id')
     user_name = current_user.get('name', 'Unknown')
 
@@ -244,8 +243,7 @@ async def create_challenge(
     if not is_member:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="그룹 멤버만 챌린지를 생성할 수 있습니다.")
 
-    # DB에 챌린지 생성 (이하 로직은 동일)
-    new_challenge_data = await study_group_supabase.create_challenge(db, group_id, user_id, challenge_in.model_dump())
+    new_challenge_data = await study_group_supabase.create_challenge(db, group_id, user_id, challenge_in)
 
     return ChallengeResponse(
         id=new_challenge_data['id'],
@@ -254,13 +252,10 @@ async def create_challenge(
         creator_name=user_name,
         title=new_challenge_data['title'],
         description=new_challenge_data['description'],
-        challenge_type=new_challenge_data['challenge_type'],
-        target_value=new_challenge_data['target_value'],
-        user_current_value=0,
-        is_completed=False,
         end_date=new_challenge_data['end_date'],
-        is_active=new_challenge_data['is_active'],
-        created_at=new_challenge_data['created_at']
+        created_at=new_challenge_data['created_at'],
+        participants=[], # 생성 시점에는 참여자 없음
+        user_has_completed=False,
     )
 
 
@@ -270,39 +265,9 @@ async def list_challenges(
         db: AsyncClient = Depends(get_db),
         current_user: dict = Depends(get_current_user)
 ):
-    """특정 스터디 그룹의 챌린지 목록을 조회합니다."""
-    challenges = await study_group_supabase.get_challenges_by_group_id(db, group_id)
-
-    response_data = []
-    for c in challenges:
-        response_data.append(ChallengeResponse(
-            id=c['id'],
-            group_id=c['group_id'],
-            creator_id=c['created_by_user_id'],
-            creator_name=c['creator_name'],
-            title=c['title'],
-            description=c['description'],
-            challenge_type=c['challenge_type'],
-            target_value=c['target_value'],
-            user_current_value=c['user_current_value'],
-            is_completed=c['is_completed'], # ▼▼▼ [5. 이 필드를 추가] ▼▼▼
-            end_date=c['end_date'],
-            is_active=c['is_active'],
-            created_at=c['created_at']
-        ))
-    return response_data
-
-
-@router.post("/challenges/log-progress", status_code=status.HTTP_204_NO_CONTENT)
-async def log_challenge_progress(
-        request: ProgressLogRequest,
-        db: AsyncClient = Depends(get_db),
-        current_user: dict = Depends(get_current_user)
-):
-    """사용자의 학습 활동을 연관된 챌린지에 자동으로 기록합니다."""
     user_id = current_user.get('user_id')
-    # challenge_supabase 모듈이 없으므로 study_group_supabase 사용
-    await study_group_supabase.log_progress(db, user_id, request.log_type, request.value)
+    challenges = await study_group_supabase.get_challenges_by_group_id(db, group_id, user_id)
+    return [ChallengeResponse(**c) for c in challenges]
 
 @router.put("/challenges/{challenge_id}", response_model=ChallengeResponse)
 async def update_challenge(
@@ -345,3 +310,75 @@ async def delete_challenge(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="삭제 권한이 없습니다.")
 
     await study_group_supabase.delete_challenge(db, challenge_id)
+
+@router.post("/challenges/{challenge_id}/submit", status_code=status.HTTP_201_CREATED)
+async def submit_challenge_proof(
+        challenge_id: int,
+        proof_content: Optional[str] = Form(None),
+        proof_image: Optional[UploadFile] = File(None),
+        db: AsyncClient = Depends(get_db),
+        current_user: dict = Depends(get_current_user)
+):
+    user_id = current_user.get('user_id')
+    image_url = None
+
+    # (주의) 실제 프로덕션에서는 파일 저장 로직이 필요합니다.
+    # 예: S3, Supabase Storage 등에 업로드하고 URL을 받아오는 로직
+    if proof_image:
+        # file_path = f"challenge_proofs/{challenge_id}_{user_id}_{proof_image.filename}"
+        # await storage_client.upload(file_path, proof_image.file)
+        # image_url = storage_client.get_public_url(file_path)
+        image_url = "https://example.com/placeholder.jpg" # 임시 URL
+
+    if not proof_content and not image_url:
+        raise HTTPException(status_code=400, detail="인증 내용 또는 이미지가 필요합니다.")
+
+    try:
+        await study_group_supabase.create_challenge_submission(db, challenge_id, user_id, proof_content, image_url)
+        return {"message": "인증 내역이 성공적으로 제출되었습니다. 그룹장의 승인을 기다려주세요."}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+# ▼▼▼ [신규] 인증 내역 조회 API (그룹장용) ▼▼▼
+@router.get("/challenges/{challenge_id}/submissions", response_model=List[ChallengeSubmissionResponse])
+async def get_challenge_submissions(
+        challenge_id: int,
+        db: AsyncClient = Depends(get_db),
+        current_user: dict = Depends(get_current_user)
+):
+    challenge = await study_group_supabase.get_challenge_by_id(db, challenge_id)
+    if not challenge:
+        raise HTTPException(status_code=404, detail="챌린지를 찾을 수 없습니다.")
+
+    group_owner = await study_group_supabase.get_group_owner(db, challenge['group_id'])
+    if group_owner != current_user.get('user_id'):
+        raise HTTPException(status_code=403, detail="인증 내역을 조회할 권한이 없습니다.")
+
+    submissions = await study_group_supabase.get_submissions_for_challenge(db, challenge_id)
+
+    return [
+        ChallengeSubmissionResponse(
+            id=s['id'],
+            user_id=s['user_id'],
+            user_name=s.get('user_account', {}).get('name', 'Unknown'),
+            proof_content=s['proof_content'],
+            proof_image_url=s['proof_image_url'],
+            status=s['status'],
+            submitted_at=s['submitted_at']
+        ) for s in submissions
+    ]
+
+# ▼▼▼ [신규] 인증 승인/거절 API (그룹장용) ▼▼▼
+@router.post("/submissions/{submission_id}/process", status_code=status.HTTP_200_OK)
+async def process_challenge_submission(
+        submission_id: int,
+        status: str = Query(..., pattern="^(approved|rejected)$"), # approved 또는 rejected만 허용
+        db: AsyncClient = Depends(get_db),
+        current_user: dict = Depends(get_current_user)
+):
+    # (실제 구현 시) 이 submission이 속한 그룹의 장이 current_user인지 확인하는 로직 필요
+    try:
+        await study_group_supabase.process_submission(db, submission_id, status)
+        return {"message": f"인증을 '{status}' 처리했습니다."}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))

@@ -12,6 +12,7 @@ class GrammarHistoryResponse(BaseModel):
     grammar_feedback: Optional[List[str]] = []
     vocabulary_suggestions: Optional[List[str]] = []
     created_at: datetime
+    is_favorite: Optional[bool] = False
 
 class GrammarSessionCreate(BaseModel):
     transcribed_text: str

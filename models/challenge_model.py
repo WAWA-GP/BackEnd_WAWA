@@ -1,52 +1,56 @@
 # models/challenge_model.py
 
-from datetime import datetime
-from typing import Optional, List
-
 from pydantic import BaseModel, Field
+from typing import Optional, List
+from datetime import datetime
 
-
-# --- Request Models --- (변경 없음)
+# --- 챌린지 생성 및 수정 모델 ---
 class ChallengeCreate(BaseModel):
-    title: str = Field(..., min_length=2, max_length=100)
-    description: Optional[str] = Field(None, max_length=500)
-    challenge_type: str # 'pronunciation', 'grammar', 'conversation'
-    target_value: int = Field(..., gt=0)
-    duration_days: int = Field(default=7, gt=0)
+    title: str = Field(..., min_length=3, max_length=100)
+    description: Optional[str] = Field(None, max_length=1000)
+    duration_days: int = Field(..., ge=1, le=365)
 
-class ProgressLogRequest(BaseModel):
-    log_type: str # 'pronunciation', 'grammar', 'conversation'
-    value: int = Field(..., gt=0)
+class ChallengeUpdate(BaseModel):
+    title: str = Field(..., min_length=3, max_length=100)
+    description: Optional[str] = Field(None, max_length=1000)
 
+# --- 챌린지 인증 모델 ---
+class SubmissionCreate(BaseModel):
+    proof_content: Optional[str] = Field(None, max_length=500)
+    # proof_image_url 필드는 파일 업로드 후 URL을 받아와 채워집니다.
 
-# --- Response Models ---
-# ▼▼▼ [수정] ChallengeResponse 모델을 아래 코드로 교체 ▼▼▼
+# --- API 응답 모델 ---
+class ChallengeParticipant(BaseModel):
+    user_id: str
+    user_name: str
+    completed_at: datetime
+
+class ChallengeSubmissionResponse(BaseModel):
+    id: int
+    user_id: str
+    user_name: str
+    proof_content: Optional[str]
+    proof_image_url: Optional[str]
+    status: str
+    submitted_at: datetime
+
 class ChallengeResponse(BaseModel):
     id: int
     group_id: int
-    creator_id: str # 생성자 user_id
-    creator_name: str # 생성자 이름
+    creator_id: str
+    creator_name: str
     title: str
     description: Optional[str]
-    challenge_type: str
-    target_value: int
-    user_current_value: int # 개인의 현재 달성치
-    is_completed: bool
     end_date: datetime
-    is_active: bool
     created_at: datetime
-# ▲▲▲ 수정 완료 ▲▲▲
 
-class UserProgressResponse(BaseModel):
-    user_id: str
-    user_name: str
-    current_value: int
-    progress_percentage: float
-    last_updated: datetime
+    # 이 챌린지를 완료한 참여자 목록
+    participants: List[ChallengeParticipant] = []
 
-class ChallengeDetailResponse(ChallengeResponse):
-    leaderboard: List[UserProgressResponse]
+    # 현재 요청을 보낸 사용자의 완료 여부
+    user_has_completed: bool
 
-class ChallengeUpdate(BaseModel):
-    title: Optional[str] = Field(None, min_length=2, max_length=100)
-    description: Optional[str] = Field(None, max_length=500)
+# (참고) ProgressLogRequest는 이제 사용되지 않습니다.
+class ProgressLogRequest(BaseModel):
+    log_type: str
+    value: int

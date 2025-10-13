@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Dict, Any
 
 from supabase import AsyncClient
+from models.challenge_model import ChallengeCreate, ChallengeUpdate
 
 
 async def create_study_group(
@@ -283,26 +284,24 @@ async def get_group_owner(db: AsyncClient, group_id: int) -> Optional[str]:
         .execute()
     return owner_res.data['user_id'] if owner_res.data else None
 
-async def create_challenge(db: AsyncClient, group_id: int, user_id: str, challenge_data: Dict[str, Any]) -> Dict[str, Any]:
-    """group_challenges 테이블에 새로운 챌린지 생성"""
-    # ▼▼▼ [2. 현재 시간을 UTC 기준으로 가져오도록 수정] ▼▼▼
-    end_date = datetime.now(timezone.utc) + timedelta(days=challenge_data['duration_days'])
+async def create_challenge(db: AsyncClient, group_id: int, user_id: str, challenge_data: ChallengeCreate) -> Dict[str, Any]:
+    """group_challenges 테이블에 새로운 자유 형식 챌린지 생성"""
+    end_date = datetime.now(timezone.utc) + timedelta(days=challenge_data.duration_days)
 
     response = await db.table('group_challenges').insert({
         'group_id': group_id,
         'created_by_user_id': user_id,
-        'title': challenge_data['title'],
-        'description': challenge_data['description'],
-        'challenge_type': challenge_data['challenge_type'],
-        'target_value': challenge_data['target_value'],
+        'title': challenge_data.title,
+        'description': challenge_data.description,
         'end_date': end_date.isoformat(),
+        # challenge_type, target_value 등은 제거
     }).execute()
 
     return response.data[0]
 
-async def get_challenges_by_group_id(db: AsyncClient, group_id: int) -> List[Dict[str, Any]]:
-    """특정 그룹의 모든 챌린지와 각 챌린지 생성자의 진행률 조회 (안정성 강화 버전)"""
-
+# ▼▼▼ [수정 완료] get_challenges_by_group_id 함수 ▼▼▼
+async def get_challenges_by_group_id(db: AsyncClient, group_id: int, current_user_id: str) -> List[Dict[str, Any]]:
+    """특정 그룹의 모든 챌린지와 완료한 참여자 정보 조회 (최적화 버전)"""
     challenges_res = await db.table('group_challenges') \
         .select('*, creator:user_account!created_by_user_id(name)') \
         .eq('group_id', group_id) \
@@ -312,76 +311,103 @@ async def get_challenges_by_group_id(db: AsyncClient, group_id: int) -> List[Dic
     if not challenges_res.data:
         return []
 
-    challenges_with_progress = []
-    for challenge in challenges_res.data:
-        creator_id = challenge['created_by_user_id']
+    challenges = challenges_res.data
+    challenge_ids = [c['id'] for c in challenges]
 
-        progress_res = await db.table('user_challenge_progress') \
-            .select('current_value') \
-            .eq('challenge_id', challenge['id']) \
-            .eq('user_id', creator_id) \
+    participants_res = await db.table('challenge_participants') \
+        .select('challenge_id, user_id, completed_at, user_account(name)') \
+        .in_('challenge_id', challenge_ids) \
+        .eq('status', 'approved') \
+        .execute()
+
+    participants_data = participants_res.data
+
+    participants_by_challenge = {cid: [] for cid in challenge_ids}
+    for p in participants_data:
+        if p.get('user_account'):
+            participants_by_challenge[p['challenge_id']].append({
+                'user_id': p['user_id'],
+                'user_name': p['user_account']['name'],
+                'completed_at': p['completed_at']
+            })
+
+    response_data = []
+    for challenge in challenges:
+        challenge_id = challenge['id']
+        participants = participants_by_challenge.get(challenge_id, [])
+        user_has_completed = any(p['user_id'] == current_user_id for p in participants)
+
+        # ▼▼▼ 바로 이 부분입니다! ▼▼▼
+        response_data.append({
+            **challenge,
+            'creator_name': challenge.get('creator', {}).get('name', 'Unknown'),
+            'participants': participants,
+            'user_has_completed': user_has_completed,
+        }) # <--- 중괄호 } 뒤에 이 소괄호 )가 빠졌을 가능성이 높습니다.
+
+    return response_data
+
+# ▼▼▼ [신규] 챌린지 인증 제출 ▼▼▼
+async def create_challenge_submission(db: AsyncClient, challenge_id: int, user_id: str, content: str, image_url: Optional[str]) -> Dict[str, Any]:
+    # 이미 제출했거나 승인된 내역이 있는지 확인
+    existing_sub = await db.table('challenge_submissions') \
+        .select('id, status') \
+        .eq('challenge_id', challenge_id) \
+        .eq('user_id', user_id) \
+        .in_('status', ['pending', 'approved']) \
+        .execute()
+
+    if existing_sub.data:
+        raise Exception(f"이미 '{existing_sub.data[0]['status']}' 상태의 인증 내역이 존재합니다.")
+
+    response = await db.table('challenge_submissions').insert({
+        'challenge_id': challenge_id,
+        'user_id': user_id,
+        'proof_content': content,
+        'proof_image_url': image_url
+    }).execute()
+    return response.data[0]
+
+# ▼▼▼ [신규] 특정 챌린지의 모든 인증 내역 조회 (그룹장용) ▼▼▼
+async def get_submissions_for_challenge(db: AsyncClient, challenge_id: int) -> List[Dict[str, Any]]:
+    response = await db.table('challenge_submissions') \
+        .select('*, user_account(name)') \
+        .eq('challenge_id', challenge_id) \
+        .order('submitted_at', desc=True) \
+        .execute()
+    return response.data
+
+# ▼▼▼ [신규] 인증 승인/거절 처리 ▼▼▼
+async def process_submission(db: AsyncClient, submission_id: int, new_status: str) -> Dict[str, Any]:
+    # 1. 인증 내역 상태 업데이트
+    submission_update_res = await db.table('challenge_submissions') \
+        .update({'status': new_status}) \
+        .eq('id', submission_id) \
+        .select('challenge_id, user_id') \
+        .execute()
+
+    if not submission_update_res.data:
+        raise Exception("존재하지 않는 인증 내역입니다.")
+
+    submission_info = submission_update_res.data[0]
+
+    # 2. '승인'일 경우, challenge_participants 테이블에 기록
+    if new_status == 'approved':
+        # 이미 기록이 있는지 확인 후 없으면 추가 (중복 방지)
+        existing_participant = await db.table('challenge_participants') \
+            .select('id') \
+            .eq('challenge_id', submission_info['challenge_id']) \
+            .eq('user_id', submission_info['user_id']) \
             .execute()
 
-        creator_name = challenge.get('creator', {}).get('name', 'Unknown') if challenge.get('creator') else 'Unknown'
+        if not existing_participant.data:
+            await db.table('challenge_participants').insert({
+                'challenge_id': submission_info['challenge_id'],
+                'user_id': submission_info['user_id'],
+                'status': 'approved' # `completed` 대신 `approved` 사용
+            }).execute()
 
-        challenge['creator_name'] = creator_name
-
-        user_current_value = progress_res.data[0]['current_value'] if progress_res.data else 0
-        challenge['user_current_value'] = user_current_value
-
-        # ▼▼▼ [2. is_completed 필드를 계산하여 추가] ▼▼▼
-        challenge['is_completed'] = user_current_value >= challenge['target_value']
-        # ▲▲▲ 여기까지 추가 ▲▲▲
-
-        challenges_with_progress.append(challenge)
-
-    return challenges_with_progress
-
-async def log_progress(db: AsyncClient, user_id: str, log_type: str, value: int):
-    """사용자의 학습 활동을 '자신이 만든' 활성 챌린지에만 기록 (목표치 초과 방지)"""
-    try:
-        # ▼▼▼ [3. 조회 시 target_value도 함께 가져오도록 select 수정] ▼▼▼
-        active_challenges_res = await db.table('group_challenges') \
-            .select('id, target_value') \
-            .eq('created_by_user_id', user_id) \
-            .eq('challenge_type', log_type) \
-            .eq('is_active', True) \
-            .gt('end_date', datetime.now(timezone.utc).isoformat()) \
-            .execute()
-
-        if not active_challenges_res.data:
-            return
-
-        for challenge in active_challenges_res.data:
-            challenge_id = challenge['id']
-            target_value = challenge['target_value'] # 목표치
-
-            progress_res = await db.table('user_challenge_progress') \
-                .select('id, current_value') \
-                .eq('challenge_id', challenge_id) \
-                .eq('user_id', user_id) \
-                .execute()
-
-            if progress_res.data:
-                existing_progress = progress_res.data[0]
-                current_value = existing_progress['current_value']
-
-                # ▼▼▼ [4. 이미 목표를 달성했으면 더 이상 업데이트하지 않음] ▼▼▼
-                if current_value >= target_value:
-                    print(f"DEBUG: 챌린지 ID {challenge_id}는 이미 목표를 달성하여 진행률을 업데이트하지 않습니다.")
-                    continue # 다음 챌린지로 넘어감
-
-                # 목표치를 넘지 않도록 계산
-                new_value = min(current_value + value, target_value)
-                await db.table('user_challenge_progress').update({'current_value': new_value}).eq('id', existing_progress['id']).execute()
-                print(f"DEBUG: 챌린지 ID {challenge_id} 진행률 업데이트 완료. 새 값: {new_value}")
-            else:
-                # 첫 기록 시에도 목표치를 넘지 않도록 계산
-                new_value = min(value, target_value)
-                await db.table('user_challenge_progress').insert({'challenge_id': challenge_id, 'user_id': user_id, 'current_value': new_value}).execute()
-                print(f"DEBUG: 챌린지 ID {challenge_id} 진행률 첫 기록 완료. 값: {new_value}")
-    except Exception as e:
-        print(f"ERROR in log_progress: {e}")
+    return submission_info
 
 async def get_challenge_by_id(db: AsyncClient, challenge_id: int) -> Dict[str, Any]:
     """ID로 단일 챌린지 조회 (권한 확인용)"""
