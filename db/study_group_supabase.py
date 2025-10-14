@@ -12,7 +12,7 @@ async def create_study_group(
         description: Optional[str],
         created_by: str,
         max_members: int,
-        requires_approval: bool # << [추가]
+        requires_approval: bool
 ) -> Dict[str, Any]:
     """학습 그룹 생성"""
     response = await db.table('study_groups').insert({
@@ -20,12 +20,11 @@ async def create_study_group(
         'description': description,
         'created_by': created_by,
         'max_members': max_members,
-        'requires_approval': requires_approval # << [추가]
+        'requires_approval': requires_approval
     }).execute()
 
     group_id = response.data[0]['id']
 
-    # 생성자를 owner로 자동 추가
     await db.table('group_members').insert({
         'group_id': group_id,
         'user_id': created_by,
@@ -36,7 +35,6 @@ async def create_study_group(
 
 async def get_all_study_groups(db: AsyncClient, current_user_id: str) -> List[Dict[str, Any]]:
     """모든 활성 그룹 조회 (현재 사용자의 멤버십 정보 포함)"""
-    # 그룹 목록 조회
     groups_response = await db.table('study_groups') \
         .select('*, user_account!created_by(name)') \
         .eq('is_active', True) \
@@ -45,7 +43,6 @@ async def get_all_study_groups(db: AsyncClient, current_user_id: str) -> List[Di
 
     groups = []
     for group in groups_response.data:
-        # 각 그룹의 멤버 수 조회
         members_response = await db.table('group_members') \
             .select('user_id, role', count='exact') \
             .eq('group_id', group['id']) \
@@ -66,21 +63,17 @@ async def get_all_study_groups(db: AsyncClient, current_user_id: str) -> List[Di
 
     return groups
 
-async def join_study_group(db: AsyncClient, group_id: int, user_id: str) -> str: # << [수정] 반환타입 변경
+async def join_study_group(db: AsyncClient, group_id: int, user_id: str) -> str:
     """그룹 참여 또는 참여 요청"""
-    # 그룹 정보 조회
     group_res = await db.table('study_groups').select('max_members, requires_approval').eq('id', group_id).single().execute()
     group = group_res.data
 
-    # 현재 멤버 수 확인
     members_res = await db.table('group_members').select('user_id', count='exact').eq('group_id', group_id).execute()
 
     if members_res.count >= group['max_members']:
         raise Exception('그룹 인원이 가득 찼습니다.')
 
-    # 승인이 필요한 그룹인 경우
     if group['requires_approval']:
-        # 이미 멤버인지, 요청했는지 확인
         req_res = await db.table('study_group_join_requests').select('id').eq('group_id', group_id).eq('user_id', user_id).eq('status', 'pending').execute()
         if req_res.data:
             raise Exception('이미 가입을 요청했습니다.')
@@ -91,7 +84,6 @@ async def join_study_group(db: AsyncClient, group_id: int, user_id: str) -> str:
             'status': 'pending'
         }).execute()
         return "가입 요청이 완료되었습니다. 그룹장의 승인을 기다려주세요."
-    # 즉시 가입 가능한 그룹인 경우
     else:
         await db.table('group_members').insert({
             'group_id': group_id,
@@ -102,7 +94,6 @@ async def join_study_group(db: AsyncClient, group_id: int, user_id: str) -> str:
 
 async def leave_study_group(db: AsyncClient, group_id: int, user_id: str) -> bool:
     """그룹 탈퇴"""
-    # owner는 탈퇴 불가
     member = await db.table('group_members') \
         .select('role') \
         .eq('group_id', group_id) \
@@ -142,7 +133,6 @@ async def get_group_members(db: AsyncClient, group_id: int) -> List[Dict[str, An
 
 async def delete_study_group(db: AsyncClient, group_id: int, user_id: str) -> bool:
     """그룹 삭제 (owner만 가능)"""
-    # owner 확인
     member = await db.table('group_members') \
         .select('role') \
         .eq('group_id', group_id) \
@@ -153,7 +143,6 @@ async def delete_study_group(db: AsyncClient, group_id: int, user_id: str) -> bo
     if member.data['role'] != 'owner':
         raise Exception('그룹 삭제 권한이 없습니다.')
 
-    # 그룹 비활성화 (실제 삭제 대신)
     await db.table('study_groups') \
         .update({'is_active': False}) \
         .eq('id', group_id) \
@@ -172,21 +161,16 @@ async def get_group_messages(db: AsyncClient, group_id: int) -> List[Dict[str, A
 
     messages = []
     for msg in response.data:
-        # ▼▼▼ [최종 안정성 강화 코드] ▼▼▼
-        # 어떤 경우에도 안전하게 이름을 가져오도록 로직을 강화합니다.
-        user_name = "알 수 없는 사용자"  # 1. 기본값을 먼저 설정합니다.
+        user_name = "알 수 없는 사용자"
         user_account_info = msg.get('user_account')
-
-        # 2. 사용자 정보가 있고(not None), 그 안에 이름이 있을 때만 user_name을 덮어씁니다.
         if user_account_info and user_account_info.get('name'):
             user_name = user_account_info['name']
-        # ▲▲▲ [최종 안정성 강화 코드] ▲▲▲
 
         messages.append({
             'id': msg['id'],
             'group_id': msg['group_id'],
             'user_id': msg['user_id'],
-            'user_name': user_name, # 이제 이 값은 절대 비어있지 않습니다.
+            'user_name': user_name,
             'content': msg['content'],
             'created_at': msg['created_at']
         })
@@ -195,28 +179,22 @@ async def get_group_messages(db: AsyncClient, group_id: int) -> List[Dict[str, A
 async def create_group_message(db: AsyncClient, group_id: int, user_id: str, content: str) -> Dict[str, Any]:
     """그룹 채팅 메시지 생성"""
     try:
-        # 2. 데이터베이스에 접근하기 직전에 아주 짧은(0.01초) 대기 시간을 추가합니다.
-        # 이 코드가 '숨 고르기' 역할을 하여 타이밍 문제를 해결합니다.
         await asyncio.sleep(0.01)
-
         response = await db.table('study_group_messages').insert({
             'group_id': group_id,
             'user_id': user_id,
             'content': content
         }).execute()
 
-        # 데이터가 반환되지 않았을 경우를 대비한 방어 코드
         if not response.data:
-            raise Exception("메시지 삽입 후 데이터가 반환되지 않았습니다. RLS 정책 또는 DB 트리거 지연 문제일 수 있습니다.")
+            raise Exception("메시지 삽입 후 데이터가 반환되지 않았습니다.")
 
         return response.data[0]
     except Exception as e:
-        # 오류가 발생하면 더 명확한 메시지를 포함하여 다시 발생시킵니다.
         raise Exception(f"create_group_message DB 작업 실패: {e}")
 
 async def get_join_requests(db: AsyncClient, group_id: int) -> List[Dict[str, Any]]:
     """특정 그룹의 'pending' 상태인 가입 요청 목록 조회"""
-
     try:
         response = await db.table('study_group_join_requests') \
             .select('*, user_account(name)') \
@@ -236,9 +214,7 @@ async def get_join_requests(db: AsyncClient, group_id: int) -> List[Dict[str, An
                 'user_name': req.get('user_account', {}).get('name') if req.get('user_account') else 'Unknown',
                 'requested_at': req['created_at']
             })
-
         return requests
-
     except Exception as e:
         print(f"--- [DB] 데이터베이스 쿼리 중 심각한 오류 발생 ---")
         print(e)
@@ -246,32 +222,26 @@ async def get_join_requests(db: AsyncClient, group_id: int) -> List[Dict[str, An
 
 async def process_join_request(db: AsyncClient, request_id: int, new_status: str) -> bool:
     """가입 요청 처리 (승인 또는 거절)"""
-    # 1. 요청 정보 가져오기
     req_res = await db.table('study_group_join_requests').select('group_id, user_id, status').eq('id', request_id).single().execute()
     if not req_res.data or req_res.data['status'] != 'pending':
         raise Exception('처리할 수 없는 요청입니다.')
 
     request_data = req_res.data
 
-    # 2. 승인(approve) 처리
     if new_status == 'approved':
-        # 그룹 정원 확인
         group_res = await db.table('study_groups').select('max_members').eq('id', request_data['group_id']).single().execute()
         members_res = await db.table('group_members').select('user_id', count='exact').eq('group_id', request_data['group_id']).execute()
 
         if members_res.count >= group_res.data['max_members']:
             raise Exception('그룹 인원이 가득 찼습니다.')
 
-        # group_members 테이블에 추가
         await db.table('group_members').insert({
             'group_id': request_data['group_id'],
             'user_id': request_data['user_id'],
             'role': 'member'
         }).execute()
 
-    # 3. 요청 상태 업데이트 ('approved' 또는 'rejected')
     await db.table('study_group_join_requests').update({'status': new_status}).eq('id', request_id).execute()
-
     return True
 
 async def get_group_owner(db: AsyncClient, group_id: int) -> Optional[str]:
@@ -294,7 +264,6 @@ async def create_challenge(db: AsyncClient, group_id: int, user_id: str, challen
         'title': challenge_data.title,
         'description': challenge_data.description,
         'end_date': end_date.isoformat(),
-        # challenge_type, target_value 등은 제거
     }).execute()
 
     return response.data[0]
@@ -337,19 +306,24 @@ async def get_challenges_by_group_id(db: AsyncClient, group_id: int, current_use
         participants = participants_by_challenge.get(challenge_id, [])
         user_has_completed = any(p['user_id'] == current_user_id for p in participants)
 
-        # ▼▼▼ 바로 이 부분입니다! ▼▼▼
+        # [핵심 수정] **challenge 대신, 필드를 명시적으로 매핑합니다.
         response_data.append({
-            **challenge,
+            'id': challenge['id'],
+            'group_id': challenge['group_id'],
+            'creator_id': challenge['created_by_user_id'], # DB 컬럼명을 모델 필드명으로 변경
             'creator_name': challenge.get('creator', {}).get('name', 'Unknown'),
+            'title': challenge['title'],
+            'description': challenge['description'],
+            'end_date': challenge['end_date'],
+            'created_at': challenge['created_at'],
             'participants': participants,
             'user_has_completed': user_has_completed,
-        }) # <--- 중괄호 } 뒤에 이 소괄호 )가 빠졌을 가능성이 높습니다.
+        })
 
     return response_data
 
-# ▼▼▼ [신규] 챌린지 인증 제출 ▼▼▼
 async def create_challenge_submission(db: AsyncClient, challenge_id: int, user_id: str, content: str, image_url: Optional[str]) -> Dict[str, Any]:
-    # 이미 제출했거나 승인된 내역이 있는지 확인
+    """챌린지 인증 제출"""
     existing_sub = await db.table('challenge_submissions') \
         .select('id, status') \
         .eq('challenge_id', challenge_id) \
@@ -368,8 +342,8 @@ async def create_challenge_submission(db: AsyncClient, challenge_id: int, user_i
     }).execute()
     return response.data[0]
 
-# ▼▼▼ [신규] 특정 챌린지의 모든 인증 내역 조회 (그룹장용) ▼▼▼
 async def get_submissions_for_challenge(db: AsyncClient, challenge_id: int) -> List[Dict[str, Any]]:
+    """특정 챌린지의 모든 인증 내역 조회 (그룹장용)"""
     response = await db.table('challenge_submissions') \
         .select('*, user_account(name)') \
         .eq('challenge_id', challenge_id) \
@@ -377,9 +351,8 @@ async def get_submissions_for_challenge(db: AsyncClient, challenge_id: int) -> L
         .execute()
     return response.data
 
-# ▼▼▼ [신규] 인증 승인/거절 처리 ▼▼▼
 async def process_submission(db: AsyncClient, submission_id: int, new_status: str) -> Dict[str, Any]:
-    # 1. 인증 내역 상태 업데이트
+    """인증 승인/거절 처리"""
     submission_update_res = await db.table('challenge_submissions') \
         .update({'status': new_status}) \
         .eq('id', submission_id) \
@@ -391,9 +364,7 @@ async def process_submission(db: AsyncClient, submission_id: int, new_status: st
 
     submission_info = submission_update_res.data[0]
 
-    # 2. '승인'일 경우, challenge_participants 테이블에 기록
     if new_status == 'approved':
-        # 이미 기록이 있는지 확인 후 없으면 추가 (중복 방지)
         existing_participant = await db.table('challenge_participants') \
             .select('id') \
             .eq('challenge_id', submission_info['challenge_id']) \
@@ -404,7 +375,7 @@ async def process_submission(db: AsyncClient, submission_id: int, new_status: st
             await db.table('challenge_participants').insert({
                 'challenge_id': submission_info['challenge_id'],
                 'user_id': submission_info['user_id'],
-                'status': 'approved' # `completed` 대신 `approved` 사용
+                'status': 'approved'
             }).execute()
 
     return submission_info
@@ -431,5 +402,4 @@ async def is_user_group_member(db: AsyncClient, group_id: int, user_id: str) -> 
         .eq('user_id', user_id) \
         .execute()
 
-    # count가 1 이상이면 멤버로 간주
     return response.count > 0
