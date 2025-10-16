@@ -1,7 +1,7 @@
 import asyncio
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Dict, Any
-
+import logging
 from supabase import AsyncClient
 from models.challenge_model import ChallengeCreate, ChallengeUpdate
 
@@ -403,3 +403,42 @@ async def is_user_group_member(db: AsyncClient, group_id: int, user_id: str) -> 
         .execute()
 
     return response.count > 0
+
+async def log_progress(db: AsyncClient, user_id: str, log_type: str, value: int):
+    """
+    사용자의 모든 활성 챌린지에 진행률을 업데이트합니다.
+    (챌린지 유형(type)을 더 이상 구분하지 않습니다.)
+    """
+    try:
+        now_utc = datetime.now(timezone.utc).isoformat()
+
+        # 1. 사용자가 참여하고 있고, 아직 마감되지 않은 '모든' 챌린지를 찾습니다.
+        #    'challenge_type' 필터링 로직을 제거했습니다.
+        participants_response = await db.table('challenge_participants') \
+            .select('id, progress, group_challenges!inner(id)') \
+            .eq('user_id', user_id) \
+            .gt('group_challenges.end_date', now_utc) \
+            .execute()
+
+        if not participants_response.data:
+            logging.info(f"사용자 {user_id}에 대한 활성 챌린지가 없습니다. 진행률 업데이트를 건너뜁니다.")
+            return
+
+        # 2. 찾은 모든 챌린지에 대해 진행률을 업데이트합니다.
+        for participant in participants_response.data:
+            participant_id = participant['id']
+            # challenge_progress 테이블이 없으므로 challenge_participants 테이블을 사용한다고 가정합니다.
+            current_progress = participant.get('progress') or 0
+            new_progress = current_progress + value
+
+            await db.table('challenge_participants') \
+                .update({'progress': new_progress}) \
+                .eq('id', participant_id) \
+                .execute()
+
+            logging.info(f"챌린지 진행률 업데이트 성공: participant_id={participant_id}, new_progress={new_progress}")
+
+    except Exception as e:
+        logging.error(f"챌린지 진행률 업데이트 중 오류 발생 (user_id: {user_id}): {e}")
+        # 오류를 다시 발생시켜 API 레이어에서 500 에러로 처리하도록 합니다.
+        raise

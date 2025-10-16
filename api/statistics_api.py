@@ -9,45 +9,97 @@ from core.database import get_db
 from supabase import AsyncClient
 import logging
 import json
-from datetime import date
+from datetime import date, datetime
+from db import point_supabase
+from uuid import UUID
+from services import point_service
+from models.point_model import PointTransactionRequest
 
 router = APIRouter()
 
 @router.post("/log/add", status_code=201)
 @measure_performance("학습 로그 추가")
 async def add_learning_log(
-        request: Request,  # ✅ 추가: 원본 요청 확인
+        request: Request,
         log: LearningLog,
         current_user: dict = Depends(get_current_user),
         db: AsyncClient = Depends(get_db)
 ):
-    """현재 로그인한 사용자의 학습 로그를 추가합니다."""
-
-    # ✅ 디버깅: 요청 데이터 출력
-    try:
-        body = await request.body()
-        print(f"=== 받은 요청 body: {body.decode('utf-8')} ===")
-        print(f"=== 파싱된 log 객체: {log.model_dump()} ===")
-        print(f"=== current_user: {current_user} ===")
-    except Exception as e:
-        print(f"요청 데이터 읽기 오류: {e}")
-
+    """현재 로그인한 사용자의 학습 로그를 추가하고, 모든 목표 달성 시에만 포인트를 지급합니다."""
     user_id = current_user.get('user_id')
     if not user_id:
         raise HTTPException(status_code=401, detail="인증되지 않은 사용자입니다.")
 
     try:
+        # --- 1. 학습 로그 추가 ---
         log_data = log.model_dump()
-
-        from datetime import datetime
         if 'created_at' in log_data and isinstance(log_data['created_at'], datetime):
             log_data['created_at'] = log_data['created_at'].isoformat()
-
         await add_learning_log_to_user(user_id, log_data, db)
+
+        # --- 2. 사용자 데이터 (학습 목표, 로그) 가져오기 ---
+        user_data = await get_user_data_from_supabase(user_id, db)
+        learning_goals = user_data.get('learning_goals')
+
+        if not learning_goals:
+            return {"message": "학습 로그는 추가되었지만, 설정된 학습 목표가 없습니다."}
+
+        # --- 3. 오늘의 총 학습량 계산 ---
+        today_str = date.today().isoformat()
+        today_logs = [l for l in user_data.get('learning_logs', []) if l.get('created_at', '').startswith(today_str)]
+
+        today_progress = {'conversation': 0, 'grammar': 0, 'pronunciation': 0}
+        for l in today_logs:
+            log_type = l.get('log_type')
+            if log_type == 'conversation': today_progress['conversation'] += l.get('duration', 0)
+            elif log_type == 'grammar': today_progress['grammar'] += l.get('count', 0)
+            elif log_type == 'pronunciation': today_progress['pronunciation'] += l.get('count', 0)
+
+        # --- 4. [핵심 수정] 올바른 데이터 구조를 참조하여 목표 달성 여부 확인 ---
+        all_goals_achieved = True
+
+        # 'learning_goals' 객체에서 직접 목표 값을 읽어옵니다.
+        goal_data = learning_goals if isinstance(learning_goals, dict) else {}
+
+        goal_map = {
+            'conversation': 'conversation_goal',
+            'grammar': 'grammar_goal',
+            'pronunciation': 'pronunciation_goal'
+        }
+
+        for progress_type, goal_key in goal_map.items():
+            goal_value = goal_data.get(goal_key, 0)
+            if goal_value > 0: # 목표가 설정된 항목만 확인
+                if today_progress.get(progress_type, 0) < goal_value:
+                    all_goals_achieved = False
+                    break # 하나라도 미달성 시 즉시 중단
+
+        # --- 5. 모든 목표 달성 시 포인트 지급 (기존 로직과 동일) ---
+        if all_goals_achieved:
+            print(f"🎉 사용자 {user_id}가 오늘의 목표를 모두 달성했습니다! 포인트 지급을 시도합니다.")
+            try:
+                point_request = PointTransactionRequest(
+                    user_id=UUID(user_id),
+                    amount=500,
+                    reason="오늘의 목표 달성 보상"
+                )
+                await point_service.process_point_transaction(request=point_request, db=db)
+                logging.info(f"✅ 오늘의 목표 달성 포인트 지급 시도 완료: {user_id}")
+                return {"message": "학습 로그 추가 및 목표 달성 포인트가 지급되었습니다!"}
+
+            except Exception as e:
+                logging.warning(f"🔥 포인트 지급 실패 또는 이미 지급됨 (user_id: {user_id}): {e}")
+                return {"message": "학습 로그는 추가되었지만, 포인트는 이미 지급되었을 수 있습니다."}
+
+        # 목표를 아직 모두 달성하지 못한 경우
         return {"message": "학습 로그가 성공적으로 추가되었습니다."}
+
     except Exception as e:
-        print(f"로그 추가 오류: {e}")
-        raise HTTPException(status_code=500, detail=f"로그 추가 중 오류 발생: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"로그 추가 중 서버 오류 발생: {e}")
+
+
 
 @router.get("/statistics/{user_id}", response_model=StatisticsResponse)
 @measure_performance("통계 계산")

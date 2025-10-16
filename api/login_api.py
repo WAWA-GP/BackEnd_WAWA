@@ -3,6 +3,10 @@ from typing import Literal
 from fastapi import APIRouter, Depends, Header, HTTPException, Body, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from supabase import Client as AsyncClient
+from core.database import get_db
+from core.dependencies import get_current_user
+from db import user_crud
+from models import user_model
 
 from db.login_supabase import get_supabase_client
 from models.login_model import (
