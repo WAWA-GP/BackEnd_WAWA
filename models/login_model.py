@@ -55,6 +55,7 @@ class UserProfileResponse(BaseModel):
     selected_character_name: Optional[str] = None
     selected_character_image: Optional[str] = None
     beginner_mode: bool = False
+    points: int = 0
 
     model_config = ConfigDict(from_attributes=True)
 

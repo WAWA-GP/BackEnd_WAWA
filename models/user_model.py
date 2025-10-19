@@ -47,7 +47,7 @@ class UserResponse(BaseModel):
     learning_goals: Optional[dict] = None
     selected_character_name: Optional[str] = None
     selected_character_image: Optional[str] = None
-    points: int = 0
+    points: int
 
 
     class Config:
