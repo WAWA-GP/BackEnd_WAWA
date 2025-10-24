@@ -130,7 +130,7 @@ async def get_all_words_by_user(db: AsyncClient, user_id: str, status: Optional[
     elif status == 'not_memorized':
         query = query.eq('is_memorized', False)
 
-    response = await query.order('created_at', desc=True).execute()
+    response = await query.order('id', desc=False).execute()
     return response.data
 
 # --- 검색 및 단어 상세 조회 ---

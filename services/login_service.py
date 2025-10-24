@@ -225,7 +225,8 @@ async def get_social_login_url(provider: str, supabase: AsyncClient) -> dict:
     supabase_url = os.getenv("SUPABASE_URL")
     params = {
         "provider": provider,
-        "redirect_to": "io.supabase.wawa://auth/callback",
+        # ▼▼▼ [수정!] "io.supabase.wawa..." 대신 1단계에서 정한 '공통 주소'로 변경 ▼▼▼
+        "redirect_to": "com.example.gradu://auth/callback", # 예시: "com.wawa.app://auth/callback"
         "code_challenge": code_challenge,
         "code_challenge_method": "s256",
     }
