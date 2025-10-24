@@ -24,18 +24,21 @@ async def get_user_profile(
     """
     데이터베이스에서 사용자의 최신 프로필 정보를 조회하여 반환합니다.
     """
-    user_id = current_user.get('id')
+    user_id = current_user.get('sub')
     if not user_id:
         raise HTTPException(status_code=401, detail="인증 정보를 찾을 수 없습니다.")
 
-    # user_crud를 사용하여 DB에서 최신 사용자 정보를 가져옵니다.
     user_data = await user_crud.get_user(db, user_id)
+
+    # ▼▼▼ [디버깅 로그 추가] DB 조회 직후 데이터를 출력합니다. ▼▼▼
+    print(f"\n--- 🐛 [BACKEND DEBUG] /profile Endpoint 🐛 ---")
+    print(f"[DEBUG] DB에서 조회된 user_data: {user_data}")
+    print(f"--- 🐛 [BACKEND DEBUG] END 🐛 ---\n")
+    # ▲▲▲ [디버깅 로그 추가 완료] ▲▲▲
 
     if not user_data:
         raise HTTPException(status_code=404, detail="사용자 정보를 찾을 수 없습니다.")
 
-    # UserResponse 모델에 맞게 데이터를 반환합니다.
-    # user_data에 beginner_mode가 포함되어 있으므로 정상적으로 전달됩니다.
     return user_data
 
 # --- 프로필 수정 API ---

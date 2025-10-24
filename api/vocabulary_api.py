@@ -54,7 +54,13 @@ async def add_word(
         current_user: dict = Depends(get_current_user)
 ):
     # TODO: 사용자가 해당 단어장의 소유자인지 확인하는 로직 추가
-    return await vocabulary_service.add_new_word(db, word_in, wordbook_id)
+
+    # 클라이언트가 보낸 데이터를 받아 서비스 레이어로 전달해 저장만 수행합니다.
+    new_word = await vocabulary_service.add_new_word(db, word_in, wordbook_id)
+    if not new_word:
+        raise HTTPException(status_code=400, detail="단어 추가에 실패했습니다.")
+
+    return new_word
 
 @router.put("/words/{word_id}", response_model=vocabulary_model.UserWordResponse)
 async def update_word_content(
@@ -197,3 +203,26 @@ async def get_word_detail(
     if not word:
         raise HTTPException(status_code=404, detail="단어를 찾을 수 없습니다.")
     return word
+
+@router.get("/word-search-online", response_model=dict)
+async def search_word_online_endpoint(
+        query: str,
+        db: AsyncClient = Depends(get_db),
+        current_user: dict = Depends(get_current_user)
+):
+    """
+    외부 사전 API(dictionaryapi.dev)를 통해 단어의 상세 정보를 검색하고 번역합니다.
+    """
+    if not query:
+        raise HTTPException(status_code=400, detail="검색할 단어를 입력해주세요.")
+
+    try:
+        # 서비스 계층의 새 함수를 호출
+        word_data = await vocabulary_service.search_word_online(query)
+        return word_data
+    except HTTPException as e:
+        # 서비스에서 발생한 HTTPException을 그대로 클라이언트에 전달
+        raise e
+    except Exception as e:
+        # 그 외 예상치 못한 오류 처리
+        raise HTTPException(status_code=500, detail=f"단어 검색 중 서버 오류 발생: {str(e)}")

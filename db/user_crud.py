@@ -29,10 +29,47 @@ async def get_user_by_username(db: AsyncClient, username: str):
         return None
 
 # --- 사용자 조회 (ID 기준) ---
-async def get_user(db: AsyncClient, user_id: str):  # 👈 int → str로 변경 (UUID인 경우)
-    # 👇 실제 컬럼명으로 변경 (예: user_id)
-    response = await db.table("user_account").select("*").eq("user_id", user_id).limit(1).single().execute()
-    return response.data
+async def get_user(db: AsyncClient, user_id: str):
+    """
+    (수정됨) 사용자 정보를 조회할 때 실제 DB 컬럼명(target_language)을 사용합니다.
+    """
+    try:
+        # 1. select 구문에서 'learning_language'를 실제 컬럼명인 'target_language'로 변경합니다.
+        #    'level'도 'assessed_level'일 수 있으므로 두 가능성을 모두 조회합니다.
+        response = await db.table("user_account").select(
+            "user_id, "
+            "email, "
+            "name, "
+            "is_admin, "
+            "is_active, "
+            "native_language, "
+            "target_language, "  # ◀◀◀ learning_language -> target_language 로 수정
+            "assessed_level, "   # ◀◀◀ level 대신 assessed_level 조회
+            "beginner_mode, "
+            "learning_goals, "
+            "selected_character_name, "
+            "selected_character_image, "
+            "points"
+        ).eq("user_id", user_id).limit(1).single().execute()
+
+        if response.data:
+            user_data = response.data
+
+            # 2. Pydantic 모델(UserResponse)이 기대하는 필드명으로 데이터를 매핑해줍니다.
+            user_data['id'] = user_data.get('user_id')
+            user_data['username'] = user_data.get('email')
+            # 'target_language' 값을 'learning_language' 키에 복사
+            user_data['learning_language'] = user_data.get('target_language')
+            # 'assessed_level' 값을 'level' 키에 복사
+            user_data['level'] = user_data.get('assessed_level')
+
+            return user_data
+
+        return None
+
+    except Exception as e:
+        logging.error(f"get_user 조회 중 오류 발생: {e}")
+        return None
 
 # --- 사용자 생성 ---
 async def create_user(db: AsyncClient, user_id: str, email: str, name: str, hashed_password: str, is_admin: bool):

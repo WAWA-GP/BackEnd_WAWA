@@ -5,6 +5,7 @@ from models.point_model import PointTransactionRequest
 from db import point_supabase
 from supabase import AsyncClient
 import traceback # 디버깅을 위해 traceback 모듈 추가
+from uuid import UUID
 
 async def process_point_transaction(request: PointTransactionRequest, db: AsyncClient) -> dict:
     # 이 함수가 호출되었는지 확인하기 위한 로그
@@ -37,3 +38,12 @@ async def process_point_transaction(request: PointTransactionRequest, db: AsyncC
 
         # 클라이언트에게는 일반적인 500 에러를 보냅니다.
         raise HTTPException(status_code=500, detail="Internal Server Error")
+
+async def get_user_point_history(user_id: UUID, db: AsyncClient) -> list:
+    """사용자의 포인트 거래 내역을 조회하는 서비스 로직"""
+    try:
+        history = await point_supabase.get_point_transactions_by_user(db=db, user_id=user_id)
+        return history
+    except Exception as e:
+        print(f"포인트 내역 서비스 오류: {e}")
+        raise HTTPException(status_code=500, detail="포인트 내역을 불러오는 중 오류가 발생했습니다.")

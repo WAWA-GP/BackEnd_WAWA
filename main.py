@@ -34,7 +34,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 # 16. 포인트 api
 app.include_router(
     point_api.router,
-    prefix="/points",
+    prefix="/api/points",
     tags=["Points"]
 )
 

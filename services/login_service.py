@@ -140,21 +140,35 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm, supabase:
 
 @measure_performance("프로필 조회")
 async def get_current_user(token: str, supabase: AsyncClient):
-    """JWT 토큰으로 사용자 인증 실패 시 명확한 오류 메시지를 반환합니다."""
+    """JWT 토큰으로 사용자를 확인하고, DB에서 직접 모든 프로필 정보를 조회합니다."""
     try:
+        # 1. 토큰으로 supabase.auth의 user 객체를 가져옵니다.
         user_response = await supabase.auth.get_user(token)
         user = user_response.user
-        if not user or not user.email:
+        if not user or not user.id:
             raise HTTPException(status_code=401, detail="인증 정보가 유효하지 않습니다. 다시 로그인해주세요.")
 
-        profile_response = await supabase.rpc('get_user_profile_by_email', {'user_email': user.email}).execute()
-        if profile_response.data:
-            return profile_response.data[0]
+        # 2. [가장 확실한 방법] 컬럼 이름을 직접 나열하는 대신, 와일드카드(*)를 사용하여
+        #    'user_account' 테이블의 모든 정보를 한 번에 조회합니다.
+        #    이 방법은 컬럼명 오타로 인한 오류 가능성을 원천적으로 차단합니다.
+        profile_response = await supabase.table("user_account") \
+            .select("*") \
+            .eq("user_id", str(user.id)) \
+            .single() \
+            .execute()
 
+        if profile_response.data:
+            # 3. 조회된 데이터를 그대로 반환합니다.
+            return profile_response.data
+
+        # 프로필 정보가 없는 경우
         raise HTTPException(status_code=404, detail="사용자 프로필을 찾을 수 없습니다.")
+
     except HTTPException:
+        # HTTPException은 그대로 다시 발생시킵니다.
         raise
     except Exception as e:
+        # 그 외 모든 예상치 못한 오류를 처리합니다.
         logger.error(f"프로필 조회 중 오류: {e}")
         raise HTTPException(status_code=500, detail="프로필을 불러오는 중 문제가 발생했습니다.")
 
@@ -178,15 +192,18 @@ async def auto_login_with_token(token: str, supabase: AsyncClient):
     try:
         user_response = await supabase.auth.get_user(token)
         user = user_response.user
-        if not user or not user.email:
+        if not user or not user.id: # [수정] user.id로 체크
             raise Exception("유효하지 않은 토큰입니다.")
 
-        # get_user_profile_by_email 함수가 is_admin을 포함하도록 수정되었으므로
-        # 이 부분은 자동으로 is_admin이 포함됩니다.
-        profile_response = await supabase.rpc('get_user_profile_by_email', {'user_email': user.email}).execute()
+        # ▼▼▼ [핵심 수정] RPC 호출 대신, 사용자의 모든 프로필 정보를 직접 조회하도록 변경합니다. ▼▼▼
+        profile_response = await supabase.table("user_account") \
+            .select("*") \
+            .eq("user_id", str(user.id)) \
+            .single() \
+            .execute()
 
-        if profile_response.data and len(profile_response.data) > 0:
-            profile_data = profile_response.data[0]
+        if profile_response.data:
+            profile_data = profile_response.data
             print(f"--- 자동 로그인 프로필 데이터: {profile_data} ---")
             return {"status": "ok", "user_profile": profile_data}
         else:

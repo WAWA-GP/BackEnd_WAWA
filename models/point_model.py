@@ -3,8 +3,18 @@
 
 from pydantic import BaseModel
 from uuid import UUID
+from datetime import datetime
 
 class PointTransactionRequest(BaseModel):
     user_id: UUID
     amount: int
     reason: str
+
+class PointTransactionResponse(BaseModel):
+    id: int
+    created_at: datetime
+    change_amount: int
+    reason: str
+
+    class Config:
+        from_attributes = True # DB 모델 객체를 Pydantic 모델로 자동 변환

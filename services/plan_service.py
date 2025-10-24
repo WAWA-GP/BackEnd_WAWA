@@ -35,7 +35,7 @@ PREDEFINED_PLANS: Dict[str, Dict] = {
     }
 }
 
-# 학습 계획 계산에 사용되는 가중치 (수정 없음)
+# 학습 계획 계산에 사용되는 가중치 (템플릿용)
 LEVEL_DIFFERENCE_WEIGHT = 10
 DAILY_FREQUENCY_WEIGHT = -5
 INTERVAL_FREQUENCY_WEIGHT = 5
@@ -48,7 +48,7 @@ def get_plan_templates() -> List[Dict[str, str]]:
         template_list.append({"id": id, "name": plan["name"], "description": plan["description"]})
     return template_list
 
-# 모든 계획 생성 로직의 기반이 되는 상세 계획 생성 함수 (수정 없음)
+# 템플릿 기반 계획 생성 함수
 def _create_detailed_learning_plan(request: LearningPlanRequest) -> dict:
     level_diff = request.goal_level - request.current_level
     estimated_days = 30 + (level_diff * LEVEL_DIFFERENCE_WEIGHT)
@@ -66,33 +66,40 @@ def _create_detailed_learning_plan(request: LearningPlanRequest) -> dict:
     styles = request.preferred_styles
     num_styles = len(styles)
     total_duration = request.session_duration_minutes
+
+    # ▼▼▼ [수정] time_distribution 구조 변경 ▼▼▼
+    # 회화는 분, 문법/발음은 횟수(10분당 1회로 가정)로 변환
     time_distribution = {"conversation": 0, "grammar": 0, "pronunciation": 0}
 
     if num_styles > 0:
-        base_time_per_style = total_duration / num_styles
-        for style in time_distribution:
-            if style in styles:
-                time_distribution[style] = int(base_time_per_style)
-        remainder = total_duration - sum(time_distribution.values())
-        if remainder > 0 and styles:
-            time_distribution[styles[0]] += remainder
+        time_per_style = total_duration / num_styles
+        for style in styles:
+            if style == "conversation":
+                time_distribution["conversation"] = int(time_per_style)
+            elif style == "grammar":
+                time_distribution["grammar"] = max(1, int(time_per_style / 10)) # 10분당 1회
+            elif style == "pronunciation":
+                time_distribution["pronunciation"] = max(1, int(time_per_style / 10)) # 10분당 1회
 
+    # 요약 정보 생성
     summary_lines = [
         f"총 소요 일수 : {estimated_days}일",
-        f"학습 주기 : {frequency_description}",
-        f"총 학습 시간 : {total_duration}분"
+        f"학습 주기 : {frequency_description}"
     ]
-    style_names = {"conversation": "회화 학습", "grammar": "문법 연습", "pronunciation": "발음 연습"}
-    for style, duration in time_distribution.items():
-        if duration > 0:
-            summary_lines.append(f"{style_names[style]} : {duration}분")
+    if time_distribution["conversation"] > 0:
+        summary_lines.append(f"회화 학습 : {time_distribution['conversation']}분")
+    if time_distribution["grammar"] > 0:
+        summary_lines.append(f"문법 연습 : {time_distribution['grammar']}회")
+    if time_distribution["pronunciation"] > 0:
+        summary_lines.append(f"발음 연습 : {time_distribution['pronunciation']}회")
 
     plan_summary = "\n".join(summary_lines)
 
     internal_plan = LearningPlanInternal(
         user_id=request.user_id, user_level=request.current_level, goal_level=request.goal_level,
         estimated_days=estimated_days, frequency_description=frequency_description,
-        total_session_duration=total_duration, time_distribution=time_distribution,
+        total_session_duration=time_distribution["conversation"], # 총 학습시간은 회화 시간으로 설정
+        time_distribution=time_distribution,
         plan_summary=plan_summary
     )
     return internal_plan.model_dump()
@@ -102,7 +109,6 @@ def create_plan_from_template(user_id: str, template_id: str, current_level: int
     """템플릿을 기반으로 학습 계획을 생성합니다."""
     template = PREDEFINED_PLANS.get(template_id)
     if not template:
-        # [수정] 유효하지 않은 템플릿 ID에 대해 404 Not Found 예외 발생
         raise HTTPException(status_code=404, detail="선택한 추천 플랜을 찾을 수 없습니다.")
 
     plan_params = template["params"]
@@ -114,19 +120,56 @@ def create_plan_from_template(user_id: str, template_id: str, current_level: int
     return _create_detailed_learning_plan(full_request)
 
 
+# ▼▼▼ [수정] 직접 설정값으로 학습 계획을 생성하는 로직 전체 변경 ▼▼▼
 def create_direct_learning_plan(user_id: str, current_level: int, request: DirectPlanRequest) -> dict:
-    """간소화된 직접 설정값으로 학습 계획을 생성합니다."""
-    full_request = LearningPlanRequest(
+    """사용자가 직접 설정한 값(분, 횟수)으로 학습 계획을 생성합니다."""
+
+    # 예상 소요 일수 계산을 위한 가중치
+    CONVERSATION_WEIGHT = -0.2
+    GRAMMAR_WEIGHT = -1.5
+    PRONUNCIATION_WEIGHT = -1.5
+    LEVEL_DIFFERENCE_WEIGHT = 10
+
+    goal_level = current_level + 2  # 직접 생성 시 목표 레벨은 현재보다 2단계 높게 설정
+    level_diff = goal_level - current_level
+    estimated_days = 30 + (level_diff * LEVEL_DIFFERENCE_WEIGHT)
+
+    # 각 항목별 학습량에 따라 예상 소요 일수 조정
+    estimated_days += (request.conversation_duration * CONVERSATION_WEIGHT)
+    estimated_days += (request.grammar_count * GRAMMAR_WEIGHT)
+    estimated_days += (request.pronunciation_count * PRONUNCIATION_WEIGHT)
+    estimated_days = max(7, int(estimated_days)) # 최소 7일
+
+    # 요약 정보 생성
+    summary_lines = [
+        f"총 소요 일수 : {estimated_days}일",
+        "학습 주기 : 하루에 1번 학습", # 직접 생성 시 주기는 고정
+    ]
+    if request.conversation_duration > 0:
+        summary_lines.append(f"회화 학습 : {request.conversation_duration}분")
+    if request.grammar_count > 0:
+        summary_lines.append(f"문법 연습 : {request.grammar_count}회")
+    if request.pronunciation_count > 0:
+        summary_lines.append(f"발음 연습 : {request.pronunciation_count}회")
+
+    plan_summary = "\n".join(summary_lines)
+
+    # DB에 저장할 데이터 모델 생성
+    internal_plan = LearningPlanInternal(
         user_id=user_id,
-        current_level=current_level,
-        goal_level=current_level + 2,
-        frequency_type='daily',
-        frequency_value=1,
-        session_duration_minutes=request.session_duration_minutes,
-        preferred_styles=request.preferred_styles
+        user_level=current_level,
+        goal_level=goal_level,
+        estimated_days=estimated_days,
+        frequency_description="하루에 1번 학습",
+        total_session_duration=request.conversation_duration, # 대표 시간은 회화 시간으로
+        time_distribution={
+            "conversation": request.conversation_duration,
+            "grammar": request.grammar_count,
+            "pronunciation": request.pronunciation_count,
+        },
+        plan_summary=plan_summary
     )
-    # ▼▼▼ [오류 수정] 올바른 함수 이름으로 호출합니다. ▼▼▼
-    return _create_detailed_learning_plan(full_request)
+    return internal_plan.model_dump()
 
 
 async def save_learning_plan(plan_data: dict, db: AsyncClient) -> list:

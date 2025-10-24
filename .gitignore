@@ -1,5 +1,4 @@
 # 코드 스니펫
-.env
 __pycache__/.env
 
-.env
+*.env

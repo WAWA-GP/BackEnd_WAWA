@@ -13,10 +13,12 @@ class LearningPlanRequest(BaseModel):
     session_duration_minutes: int
     preferred_styles: List[str]
 
-# [신규] API가 직접 받을 간소화된 요청 모델
+# ▼▼▼ [수정] API가 직접 받을 요청 모델 변경 ▼▼▼
+# 분, 횟수를 각각 받도록 필드를 수정합니다.
 class DirectPlanRequest(BaseModel):
-    session_duration_minutes: int = Field(..., ge=10, le=120)
-    preferred_styles: List[str]
+    conversation_duration: int = Field(default=30, ge=0, le=120, description="회화 학습 시간(분)")
+    grammar_count: int = Field(default=3, ge=0, le=50, description="문법 연습 횟수")
+    pronunciation_count: int = Field(default=3, ge=0, le=50, description="발음 연습 횟수")
 
 # [복구] 템플릿 선택 요청 모델
 class SelectPlanTemplateRequest(BaseModel):
@@ -54,4 +56,3 @@ class PlanTemplateResponse(BaseModel):
     id: str
     name: str
     description: str
-

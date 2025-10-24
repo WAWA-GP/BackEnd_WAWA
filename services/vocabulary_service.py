@@ -2,10 +2,18 @@
 
 from fastapi import HTTPException
 from supabase import AsyncClient
-
+import re
 from db import vocabulary_supabase
 from models import vocabulary_model
+import httpx
+import asyncio
+from googletrans import Translator
+import os
+from dotenv import load_dotenv
 
+# .env 파일에서 환경 변수를 로드합니다.
+load_dotenv()
+MERRIAM_WEBSTER_API_KEY = os.getenv("MERRIAM_WEBSTER_API_KEY")
 
 # --- Wordbook ---
 async def create_new_wordbook(db: AsyncClient, name: str, user_id: str):
@@ -91,3 +99,102 @@ async def search_user_words(db: AsyncClient, user_id: str, query: str):
 
 async def get_word_detail(db: AsyncClient, user_id: str, word_id: int):
     return await vocabulary_supabase.get_user_word_detail(db, user_id, word_id)
+
+def is_korean(text: str) -> bool:
+    """간단한 정규식으로 한글 포함 여부 확인"""
+    return bool(re.search("[\uac00-\ud7a3]", text))
+
+# ▼▼▼ [수정] search_word_online 함수 전체를 아래 코드로 교체 ▼▼▼
+async def search_word_online(query: str):
+    """
+    (수정) Merriam-Webster API와 Google Translate를 이용해 단어 정보를 검색하고 가공합니다.
+    한글 검색을 지원하고, 영단어 검색 실패 시 대체 로직을 추가합니다.
+    """
+    if not MERRIAM_WEBSTER_API_KEY:
+        raise HTTPException(status_code=500, detail="Merriam-Webster API 키가 서버에 설정되지 않았습니다.")
+
+    translator = Translator()
+    original_query = query
+    english_query = query.lower()
+    korean_meaning_of_query = ""
+
+    # 1. 입력된 쿼리가 한글인지, 영어인지 판별하고 검색 준비
+    if is_korean(original_query):
+        try:
+            translated = await asyncio.to_thread(translator.translate, original_query, src='ko', dest='en')
+            english_query = translated.text.lower()
+            korean_meaning_of_query = original_query
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"'{original_query}' 번역 중 오류 발생: {e}")
+    else:
+        try:
+            translated = await asyncio.to_thread(translator.translate, original_query, src='en', dest='ko')
+            korean_meaning_of_query = translated.text
+        except Exception:
+            korean_meaning_of_query = ""
+
+    # 2. 영단어로 Merriam-Webster API 검색 시도
+    api_url = f"https://www.dictionaryapi.com/api/v3/references/collegiate/json/{english_query}?key={MERRIAM_WEBSTER_API_KEY}"
+    data = None
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.get(api_url, timeout=10.0)
+            response.raise_for_status()
+            api_data = response.json()
+            if api_data and isinstance(api_data[0], dict):
+                data = api_data
+        except Exception:
+            # API 호출 실패 시, data는 None으로 유지되고 아래 대체 로직으로 넘어갑니다.
+            pass
+
+    # 3. API 검색 결과 처리
+    # [CASE 1] Merriam-Webster 검색 성공 시
+    if data:
+        entry = data[0]
+        word = entry.get("hwi", {}).get("hw", english_query).replace("*", "")
+        pronunciation = ""
+        if entry.get("hwi", {}).get("prs"):
+            pronunciation = entry["hwi"]["prs"][0].get("mw", "")
+        part_of_speech = entry.get("fl", "")
+
+        pos_map = {"noun": "명사", "verb": "동사", "adjective": "형용사", "adverb": "부사", "preposition": "전치사", "conjunction": "접속사", "pronoun": "대명사", "interjection": "감탄사"}
+        korean_pos = pos_map.get(part_of_speech, part_of_speech)
+
+        formatted_definition = korean_meaning_of_query
+        if korean_pos and korean_meaning_of_query:
+            formatted_definition = f"({korean_pos}) {korean_meaning_of_query}"
+
+        example = ""
+        if entry.get("def"):
+            for sseq_item in entry["def"][0].get("sseq", []):
+                for sense_item in sseq_item:
+                    if sense_item[0] == "sense":
+                        dt_list = sense_item[1].get("dt", [])
+                        for dt in dt_list:
+                            if dt[0] == "vis":
+                                example_text = dt[1][0].get("t")
+                                if example_text:
+                                    example = re.sub(r'\{.*?\}', '', example_text).strip()
+                                    break
+                    if example: break
+                if example: break
+
+        return {
+            "word": word,
+            "definition": formatted_definition,
+            "pronunciation": f"/{pronunciation}/" if pronunciation else "",
+            "english_example": example,
+        }
+
+    # [CASE 2] Merriam-Webster 검색 실패 시 (대체 번역 로직)
+    else:
+        if korean_meaning_of_query:
+            return {
+                "word": english_query,
+                "definition": f"(뜻) {korean_meaning_of_query}",
+                "pronunciation": "", # 발음기호 정보 없음
+                # ▼▼▼ [수정] 예문이 없을 때 사용자에게 표시될 메시지 ▼▼▼
+                "english_example": "예문을 찾을 수 없습니다.",
+            }
+        else:
+            raise HTTPException(status_code=404, detail=f"'{original_query}'에 대한 정보를 찾을 수 없습니다.")

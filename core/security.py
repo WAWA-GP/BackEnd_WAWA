@@ -57,13 +57,6 @@ def create_access_token(data: dict):
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, JWT_SECRET, algorithm=ALGORITHM)
 
-# --- JWT Token ---
-def create_access_token(data: dict):
-    to_encode = data.copy()
-    expire = datetime.utcnow() + timedelta(minutes=config.ACCESS_TOKEN_EXPIRE_MINUTES)
-    to_encode.update({"exp": expire})
-    # ▼▼▼ [수정] JWT_SECRET 변수를 사용합니다. ▼▼▼
-    return jwt.encode(to_encode, JWT_SECRET, algorithm=config.ALGORITHM)
 
 def create_refresh_token(data: dict):
     to_encode = data.copy()
