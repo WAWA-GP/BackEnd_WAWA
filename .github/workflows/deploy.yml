@@ -38,6 +38,7 @@ jobs:
           SUPABASE_URL=${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY=${{ secrets.SUPABASE_KEY }}
           SUPABASE_JWT_SECRET=${{ secrets.SUPABASE_JWT_SECRET }}
+          MERRIAM_WEBSTER_API_KEY=${{secrets.MERRIAM_WEBSTER_API_KEY}}
           EOF
             
             # 가상환경 활성화 및 패키지 업데이트
