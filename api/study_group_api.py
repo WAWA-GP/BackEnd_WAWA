@@ -6,7 +6,7 @@ from supabase import AsyncClient
 from core.database import get_db
 from core.dependencies import get_current_user
 from db import study_group_supabase
-from models.challenge_model import ChallengeCreate, ChallengeResponse, ProgressLogRequest, ChallengeUpdate, ChallengeSubmissionResponse, SubmissionCreate
+from models.challenge_model import ChallengeCreate, ChallengeResponse, ProgressLogRequest, ChallengeUpdate, ChallengeSubmissionResponse, SubmissionCreate, ChallengeParticipant
 from models.study_group_model import StudyGroupCreate, StudyGroupResponse, GroupMemberResponse, GroupMessageCreate, \
     GroupMessageResponse, JoinRequestResponse
 
@@ -376,9 +376,116 @@ async def process_challenge_submission(
         db: AsyncClient = Depends(get_db),
         current_user: dict = Depends(get_current_user)
 ):
-    # (실제 구현 시) 이 submission이 속한 그룹의 장이 current_user인지 확인하는 로직 필요
+    """인증 승인/거절 처리 (그룹장 전용)"""
     try:
+        # 1. 제출된 인증 내역과 해당 그룹 ID를 조회합니다.
+        submission = await study_group_supabase.get_submission_by_id(db, submission_id)
+        if not submission or not submission.get('challenge'):
+            raise HTTPException(status_code=404, detail="유효하지 않은 인증 내역입니다.")
+
+        group_id = submission['challenge']['group_id']
+
+        # 2. 현재 사용자가 해당 그룹의 장인지 확인합니다.
+        group_owner = await study_group_supabase.get_group_owner(db, group_id)
+        if group_owner != current_user.get('user_id'):
+            raise HTTPException(status_code=403, detail="인증을 처리할 권한이 없습니다.")
+
+        # 3. 권한이 확인되면, 기존의 승인/거절 로직을 실행합니다.
         await study_group_supabase.process_submission(db, submission_id, status)
-        return {"message": f"인증을 '{status}' 처리했습니다."}
+        if status == 'approved':
+            message = "인증을 승인했습니다."
+        else: # 'rejected'
+            message = "인증을 거절했습니다."
+
+        return {"message": message}
     except Exception as e:
+        # DB 함수에서 발생한 예외(예: 이미 처리된 요청)를 포함하여 처리합니다.
         raise HTTPException(status_code=400, detail=str(e))
+
+@router.get("/challenges/{challenge_id}/my-submission", response_model=Optional[ChallengeSubmissionResponse])
+async def get_my_challenge_submission(
+        challenge_id: int,
+        db: AsyncClient = Depends(get_db),
+        current_user: dict = Depends(get_current_user)
+):
+    """현재 사용자의 특정 챌린지에 대한 인증 내역을 조회합니다."""
+    user_id = current_user.get('user_id')
+    submission = await study_group_supabase.get_user_submission_for_challenge(db, challenge_id, user_id)
+
+    if not submission:
+        # 인증 내역이 없으면 204 No Content 응답을 보냅니다.
+        return None
+
+    # ChallengeSubmissionResponse 모델에 맞게 데이터를 가공하여 반환합니다.
+    return ChallengeSubmissionResponse(
+        id=submission['id'],
+        user_id=submission['user_id'],
+        user_name=submission.get('user_account', {}).get('name', 'Unknown'),
+        proof_content=submission['proof_content'],
+        proof_image_url=submission['proof_image_url'],
+        status=submission['status'],
+        submitted_at=submission['submitted_at']
+    )
+
+@router.put("/submissions/{submission_id}", response_model=ChallengeSubmissionResponse)
+async def update_my_submission(
+        submission_id: int,
+        submission_in: SubmissionCreate, # 생성 시 사용했던 모델 재활용
+        db: AsyncClient = Depends(get_db),
+        current_user: dict = Depends(get_current_user)
+):
+    """사용자 본인의 챌린지 인증을 수정합니다."""
+    user_id = current_user.get('user_id')
+    image_url = None
+
+    try:
+        # 새 이미지가 있으면 업로드
+        if submission_in.proof_image_base64:
+            image_url = await study_group_supabase.upload_challenge_image(db, user_id, submission_in.proof_image_base64)
+
+        # DB 업데이트
+        updated_submission = await study_group_supabase.update_submission(
+            db, submission_id, user_id, submission_in.proof_content, image_url
+        )
+
+        # 상세 조회를 위한 데이터 재구성 (기존 코드 재활용)
+        return ChallengeSubmissionResponse(
+            id=updated_submission['id'],
+            user_id=user_id,
+            user_name=current_user.get('name', 'Unknown'),
+            proof_content=updated_submission['proof_content'],
+            proof_image_url=updated_submission['proof_image_url'],
+            status=updated_submission['status'],
+            submitted_at=updated_submission['submitted_at']
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"인증 수정 중 오류: {str(e)}")
+
+
+@router.delete("/submissions/{submission_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_my_submission(
+        submission_id: int,
+        db: AsyncClient = Depends(get_db),
+        current_user: dict = Depends(get_current_user)
+):
+    """사용자 본인의 챌린지 인증을 삭제합니다."""
+    user_id = current_user.get('user_id')
+    try:
+        await study_group_supabase.delete_submission(db, submission_id, user_id)
+        # 성공 시 내용 없이 204 응답
+    except Exception as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+@router.get("/challenges/{challenge_id}/participants", response_model=List[ChallengeParticipant])
+async def list_challenge_participants(
+        challenge_id: int,
+        db: AsyncClient = Depends(get_db),
+        # 이 API는 그룹 멤버 누구나 볼 수 있으므로 current_user 인증은 필수는 아님
+        # (그룹 멤버만 보게 하려면 current_user: dict = Depends(get_current_user) 추가)
+):
+    """특정 챌린지를 완료한 멤버 목록을 조회합니다."""
+    try:
+        participants = await study_group_supabase.get_challenge_participants(db, challenge_id)
+        return participants
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"참여자 목록 조회 중 오류: {str(e)}")

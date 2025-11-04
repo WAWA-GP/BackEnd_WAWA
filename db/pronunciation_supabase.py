@@ -25,7 +25,7 @@ async def get_pronunciation_history(
             **item,
             'session_id': session['session_id'],
             'target_text': session['target_text'],
-            'detailed_feedback': item.get('detail_feedback', []),
+            'detailed_feedback': item.get('detailed_feedback', []),
             'misstressed_words': item.get('missstressed_word', [])
         })
 
@@ -54,7 +54,7 @@ async def get_pronunciation_detail(
         **item,
         'session_id': session['session_id'],
         'target_text': session['target_text'],
-        'detailed_feedback': item.get('detail_feedback', []),
+        'detailed_feedback': item.get('detailed_feedback', []),
         'misstressed_words': item.get('missstressed_word', [])
     }
 

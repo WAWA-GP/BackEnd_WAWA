@@ -1,4 +1,5 @@
 import asyncio
+import base64
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Dict, Any
 import logging
@@ -352,32 +353,48 @@ async def get_submissions_for_challenge(db: AsyncClient, challenge_id: int) -> L
     return response.data
 
 async def process_submission(db: AsyncClient, submission_id: int, new_status: str) -> Dict[str, Any]:
-    """인증 승인/거절 처리"""
-    submission_update_res = await db.table('challenge_submissions') \
-        .update({'status': new_status}) \
+    """인증 승인/거절 처리 (수정됨)"""
+
+    # 1. 먼저, 처리할 인증 내역을 조회하여 정보를 가져옵니다.
+    submission_res = await db.table('challenge_submissions') \
+        .select('challenge_id, user_id, status') \
         .eq('id', submission_id) \
-        .select('challenge_id, user_id') \
+        .maybe_single() \
         .execute()
 
-    if not submission_update_res.data:
+    if not submission_res.data:
         raise Exception("존재하지 않는 인증 내역입니다.")
 
-    submission_info = submission_update_res.data[0]
+    submission_info = submission_res.data
 
+    # 이미 처리된 요청인지 확인하여 중복 처리를 방지합니다.
+    if submission_info['status'] != 'pending':
+        raise Exception(f"이미 '{submission_info['status']}' 상태인 인증입니다.")
+
+    # 2. 인증 내역의 상태를 'approved' 또는 'rejected'로 업데이트합니다.
+    await db.table('challenge_submissions') \
+        .update({'status': new_status}) \
+        .eq('id', submission_id) \
+        .execute()
+
+    # 3. 만약 '승인(approved)'된 경우, challenge_participants 테이블에도 기록합니다.
     if new_status == 'approved':
+        # 이미 참여자로 기록되었는지 중복 확인
         existing_participant = await db.table('challenge_participants') \
             .select('id') \
             .eq('challenge_id', submission_info['challenge_id']) \
             .eq('user_id', submission_info['user_id']) \
             .execute()
 
+        # 기록이 없을 때만 새로 추가합니다.
         if not existing_participant.data:
             await db.table('challenge_participants').insert({
                 'challenge_id': submission_info['challenge_id'],
                 'user_id': submission_info['user_id'],
-                'status': 'approved'
+                'status': 'approved' # participant 테이블에도 상태 기록
             }).execute()
 
+    # 성공적으로 처리되었음을 알리기 위해 원래 submission 정보를 반환합니다.
     return submission_info
 
 async def get_challenge_by_id(db: AsyncClient, challenge_id: int) -> Dict[str, Any]:
@@ -442,3 +459,169 @@ async def log_progress(db: AsyncClient, user_id: str, log_type: str, value: int)
         logging.error(f"챌린지 진행률 업데이트 중 오류 발생 (user_id: {user_id}): {e}")
         # 오류를 다시 발생시켜 API 레이어에서 500 에러로 처리하도록 합니다.
         raise
+
+async def upload_challenge_image(db: AsyncClient, user_id: str, image_base64: str) -> str:
+    """Base64 인코딩된 이미지를 디코딩하여 Supabase 스토리지에 업로드하고 public URL을 반환합니다."""
+    try:
+        image_data = base64.b64decode(image_base64)
+        file_path = f"challenge_proofs/{user_id}/{datetime.now().timestamp()}.jpg"
+        bucket_name = 'images'
+
+        await db.storage.from_(bucket_name).upload(
+            path=file_path,
+            file=image_data,
+            file_options={"content-type": "image/jpeg"}
+        )
+
+        # ✨👇 [핵심 수정] await 키워드를 추가합니다.
+        public_url = await db.storage.from_(bucket_name).get_public_url(file_path)
+
+        return public_url
+
+    except Exception as e:
+        logging.error(f"이미지 업로드 실패: {e}")
+        # 오류를 다시 발생시켜 API 레이어에서 처리하도록 합니다.
+        raise
+
+async def create_submission(db: AsyncClient, challenge_id: int, user_id: str, content: Optional[str], image_url: Optional[str]) -> Dict[str, Any]:
+    """challenge_submissions 테이블에 새로운 인증 기록을 생성합니다."""
+    response = await db.table('challenge_submissions').insert({
+        'challenge_id': challenge_id,
+        'user_id': user_id,
+        'proof_content': content,
+        'proof_image_url': image_url,
+        'status': 'pending',
+    }).execute()
+
+    if not response.data:
+        raise Exception("DB에 인증 내역을 저장하지 못했습니다. 테이블 RLS 정책이나 컬럼을 확인해주세요.")
+
+    return response.data[0]
+
+async def get_user_submission_for_challenge(db: AsyncClient, challenge_id: int, user_id: str) -> Optional[Dict[str, Any]]:
+    """특정 챌린지에 대한 현재 사용자의 가장 최근 인증 내역을 조회합니다."""
+    try:
+        response = await db.table('challenge_submissions') \
+            .select('*, user_account(name)') \
+            .eq('challenge_id', challenge_id) \
+            .eq('user_id', user_id) \
+            .order('submitted_at', desc=True) \
+            .limit(1) \
+            .maybe_single() \
+            .execute()
+
+        # ✨ [핵심 수정]
+        # response 객체가 None이 아닌지 먼저 확인합니다.
+        if response:
+            return response.data
+
+        # response가 None이면, 데이터가 없는 것이므로 None을 반환합니다.
+        return None
+
+    except Exception as e:
+        logging.error(f"내 인증 내역 조회 중 DB 오류 발생: {e}")
+        return None
+
+async def update_submission(db: AsyncClient, submission_id: int, user_id: str, content: Optional[str], image_url: Optional[str]) -> Dict[str, Any]:
+    """사용자가 본인의 챌린지 인증 내역을 수정하고, participants 테이블의 완료 기록도 삭제합니다."""
+    update_values = {
+        'proof_content': content,
+        'proof_image_url': image_url,
+        'status': 'pending', # 수정 시 다시 '승인 대기중' 상태로 변경
+    }
+
+    # 1. challenge_submissions 테이블을 업데이트하고, challenge_id를 받아옵니다.
+    response = await db.table('challenge_submissions') \
+        .update(update_values) \
+        .eq('id', submission_id) \
+        .eq('user_id', user_id) \
+        .select('*') \
+        .execute()
+
+    if not response.data:
+        raise Exception("수정할 인증 내역을 찾을 수 없거나 권한이 없습니다.")
+
+    updated_submission = response.data[0]
+    challenge_id = updated_submission['challenge_id']
+
+    # ✨ 2. [핵심 로직 추가] challenge_participants 테이블에서 해당 유저의 '완료' 기록을 삭제합니다.
+    await db.table('challenge_participants') \
+        .delete() \
+        .eq('challenge_id', challenge_id) \
+        .eq('user_id', user_id) \
+        .execute()
+
+    logging.info(f"챌린지 참여자 기록 삭제: challenge_id={challenge_id}, user_id={user_id}")
+
+    return updated_submission
+
+
+async def delete_submission(db: AsyncClient, submission_id: int, user_id: str):
+    """사용자가 본인의 챌린지 인증 내역과 참여자 기록을 함께 삭제합니다."""
+
+    # 1. 먼저 삭제할 인증 내역을 조회하여 challenge_id를 확보합니다.
+    submission_to_delete_res = await db.table('challenge_submissions') \
+        .select('challenge_id, user_id') \
+        .eq('id', submission_id) \
+        .eq('user_id', user_id) \
+        .maybe_single() \
+        .execute()
+
+    if not submission_to_delete_res.data:
+        # 이미 삭제되었거나 대상이 없는 경우 조용히 종료하거나 예외를 발생시킬 수 있습니다.
+        # 여기서는 조용히 종료하여, 사용자가 중복으로 삭제 버튼을 눌러도 오류가 나지 않도록 합니다.
+        logging.warning(f"삭제할 인증 내역(id:{submission_id})을 찾을 수 없거나 권한이 없습니다.")
+        return
+
+    submission_info = submission_to_delete_res.data
+    challenge_id = submission_info['challenge_id']
+
+    # 2. challenge_submissions 테이블에서 인증 내역을 삭제합니다.
+    await db.table('challenge_submissions') \
+        .delete() \
+        .eq('id', submission_id) \
+        .execute()
+
+    # ✨ 3. [핵심 로직] challenge_participants 테이블에서도 해당 유저의 '완료' 기록을 삭제합니다.
+    await db.table('challenge_participants') \
+        .delete() \
+        .eq('challenge_id', challenge_id) \
+        .eq('user_id', user_id) \
+        .execute()
+
+    logging.info(f"챌린지 참여자 기록 삭제 (인증 삭제로 인한): challenge_id={challenge_id}, user_id={user_id}")
+
+    # 성공적으로 삭제되었음을 알리기 위해 삭제된 submission 정보를 반환합니다.
+    return submission_info
+
+async def get_submission_by_id(db: AsyncClient, submission_id: int) -> Optional[Dict[str, Any]]:
+    """ID로 단일 인증 내역을 조회합니다 (권한 확인을 위해 챌린지 정보와 함께)."""
+    response = await db.table('challenge_submissions') \
+        .select('*, challenge:group_challenges(group_id)') \
+        .eq('id', submission_id) \
+        .maybe_single() \
+        .execute()
+    return response.data
+
+async def get_challenge_participants(db: AsyncClient, challenge_id: int) -> List[Dict[str, Any]]:
+    """특정 챌린지를 완료(승인)한 참여자 목록을 조회합니다."""
+    response = await db.table('challenge_participants') \
+        .select('user_id, completed_at, user_account(name)') \
+        .eq('challenge_id', challenge_id) \
+        .eq('status', 'approved') \
+        .order('completed_at', desc=True) \
+        .execute()
+
+    if not response.data:
+        return []
+
+    # API 응답 모델에 맞게 데이터 가공
+    participants = []
+    for p in response.data:
+        if p.get('user_account'): # user_account 정보가 있는 경우에만 추가
+            participants.append({
+                'user_id': p['user_id'],
+                'user_name': p['user_account']['name'],
+                'completed_at': p['completed_at']
+            })
+    return participants

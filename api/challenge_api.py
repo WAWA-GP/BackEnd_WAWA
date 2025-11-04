@@ -8,7 +8,7 @@ from supabase import AsyncClient
 from core.database import get_db
 from core.dependencies import get_current_user
 from db import study_group_supabase, user_crud
-from models.challenge_model import ChallengeUpdate, ChallengeResponse, ProgressLogRequest, ChallengeCreate
+from models.challenge_model import ChallengeUpdate, ChallengeResponse, ProgressLogRequest, ChallengeCreate, SubmissionCreate
 
 router = APIRouter()
 
@@ -118,3 +118,31 @@ async def list_challenges(
     # study_group_supabase의 함수를 호출하도록 변경
     challenges = await study_group_supabase.get_challenges_by_group_id(db, group_id, user_id)
     return challenges
+
+# 챌린지 인증 제출 API 엔드포인트
+@router.post("/{challenge_id}/submit", status_code=status.HTTP_201_CREATED)
+async def submit_challenge_proof(
+        challenge_id: int,
+        submission_in: SubmissionCreate,
+        db: AsyncClient = Depends(get_db),
+        current_user: dict = Depends(get_current_user)
+):
+    """챌린지 인증을 위해 사진과 글을 제출합니다."""
+    user_id = current_user.get('user_id')
+    image_url = None
+
+    try:
+        # 1. 이미지가 있으면 스토리지에 업로드하고 URL을 받습니다.
+        if submission_in.proof_image_base64:
+            image_url = await study_group_supabase.upload_challenge_image(
+                db, user_id, submission_in.proof_image_base64
+            )
+
+        # 2. DB에 인증 내역을 저장합니다.
+        new_submission = await study_group_supabase.create_submission(
+            db, challenge_id, user_id, submission_in.proof_content, image_url
+        )
+
+        return {"message": "인증이 성공적으로 제출되었습니다.", "submission": new_submission}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"인증 제출 처리 중 오류 발생: {str(e)}")

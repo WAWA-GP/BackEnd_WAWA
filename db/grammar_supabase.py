@@ -103,3 +103,40 @@ async def get_favorite_grammar_history(
         .order('created_at', desc=True) \
         .execute()
     return response.data
+
+async def toggle_question_favorite(
+        db: AsyncClient, user_id: str, question_id: str, update_data: dict
+) -> None:
+    """
+    favorite_grammar_questions 테이블에 즐겨찾기 상태를 추가하거나 삭제합니다.
+    """
+    is_favorite = update_data.get('is_favorite')
+
+    if is_favorite:
+        # 즐겨찾기 추가 시, 문제 내용도 함께 저장합니다.
+        await db.table('favorite_grammar_questions') \
+            .upsert({
+            'user_id': user_id,
+            'question_id': question_id,
+            'question': update_data.get('question'),
+            'options': update_data.get('options')
+        }, on_conflict='user_id, question_id') \
+            .execute()
+    else:
+        # 즐겨찾기 삭제
+        await db.table('favorite_grammar_questions') \
+            .delete() \
+            .eq('user_id', user_id) \
+            .eq('question_id', question_id) \
+            .execute()
+
+async def get_favorite_grammar_questions(
+        db: AsyncClient, user_id: str
+) -> List[Dict[str, Any]]:
+    """사용자가 즐겨찾기한 문법 '문제' 목록을 조회합니다."""
+    response = await db.table('favorite_grammar_questions') \
+        .select('question_id, question, options') \
+        .eq('user_id', user_id) \
+        .order('created_at', desc=True) \
+        .execute()
+    return response.data

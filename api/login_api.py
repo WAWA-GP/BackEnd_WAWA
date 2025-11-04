@@ -134,7 +134,15 @@ async def check_name_availability(
         supabase: AsyncClient = Depends(get_supabase_client)
 ):
     """이름 중복 검사"""
+    # ✨ 수정된 부분: 공백 검사 로직 추가
+    if ' ' in name:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="이름에는 공백을 사용할 수 없습니다."
+        )
+
     if not name or len(name.strip()) < 2:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="이름은 2자 이상이어야 합니다.")
+
     is_available = await login_service.check_name_availability(name.strip(), supabase)
     return {"available": is_available}

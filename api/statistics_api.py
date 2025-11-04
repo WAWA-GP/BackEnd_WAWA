@@ -3,7 +3,7 @@ from models.statistics_model import StatisticsResponse, User, LearningProgressRe
 from db.statistics_supabase import get_user_data_from_supabase, add_learning_log_to_user
 from services.performance_monitor import measure_performance
 from services.statistics_service import calculate_overall_statistics, generate_daily_feedback, \
-    calculate_progress_statistics, LearningLog, generate_learning_progress, generate_overall_feedback
+    calculate_progress_statistics, LearningLog, generate_learning_progress, generate_overall_feedback, generate_today_progress_with_feedback
 from core.dependencies import get_current_user
 from core.database import get_db
 from supabase import AsyncClient
@@ -265,3 +265,33 @@ async def get_daily_feedback(
             "icon": "error_outline",
             "color": "grey"
         }
+
+@router.get("/today-progress-detailed", response_model=LearningProgressResponse)
+@measure_performance("오늘의 상세 진척도 조회")
+async def get_today_learning_progress_detailed(
+        current_user: dict = Depends(get_current_user),
+        db: AsyncClient = Depends(get_db)
+):
+    """
+    오늘의 학습 목표 대비 상세 진척도를 반환합니다. (매일 초기화)
+    """
+    user_id = current_user.get('user_id')
+    user_data = await get_user_data_from_supabase(user_id, db)
+
+    if not user_data:
+        raise HTTPException(status_code=404, detail="사용자 정보를 찾을 수 없습니다.")
+
+    learning_goals = user_data.get('learning_goals')
+    if not learning_goals:
+        raise HTTPException(status_code=404, detail="설정된 학습 목표가 없습니다.")
+
+    learning_logs_raw = user_data.get('learning_logs') or []
+    learning_logs = [LearningLog(**log) for log in learning_logs_raw]
+
+    # 새로 만든 서비스 함수 호출
+    progress_data = generate_today_progress_with_feedback(learning_logs, learning_goals)
+
+    if not progress_data:
+        raise HTTPException(status_code=500, detail="진척도 계산 중 오류가 발생했습니다.")
+
+    return progress_data

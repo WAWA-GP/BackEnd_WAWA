@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date
 from typing import List, Optional, Tuple, Dict, Union
 from models.statistics_model import LearningLog, LearningGoal, OverallStats, ProgressStats
 
@@ -241,3 +241,51 @@ def generate_overall_feedback(stats: OverallStats) -> str:
         feedback_parts.append("총 회화 시간이 1000분을 돌파했습니다! 유창한 스피킹 실력이 눈앞에 보여요.")
 
     return " ".join(feedback_parts)
+
+def generate_today_progress_with_feedback(
+        logs: List[LearningLog],
+        goal_data: Dict
+) -> Dict:
+    """
+    오늘 날짜의 로그와 학습 목표를 기반으로 상세 진척도 데이터와 피드백을 생성합니다.
+    """
+    try:
+        goal = LearningGoal(**goal_data)
+    except Exception as e:
+        print(f"오류: 학습 목표 데이터를 파싱할 수 없습니다. 에러: {e}")
+        return None
+
+    # 1. 오늘 날짜의 로그만 필터링합니다.
+    today_str = date.today().isoformat()
+    today_logs = [log for log in logs if log.created_at and log.created_at.startswith(today_str)]
+
+    # 2. 이하 로직은 generate_learning_progress와 거의 동일합니다.
+    achieved_conversation = sum(log.duration for log in today_logs if log.log_type == 'conversation' and log.duration)
+    achieved_grammar = sum(log.count for log in today_logs if log.log_type == 'grammar' and log.count)
+    achieved_pronunciation = sum(log.count for log in today_logs if log.log_type == 'pronunciation' and log.count)
+
+    def calculate_rate(achieved, goal_value):
+        if not goal_value or goal_value == 0:
+            return 0.0
+        return min(achieved / goal_value, 1.0)
+
+    conv_rate = calculate_rate(achieved_conversation, goal.conversation_goal)
+    gram_rate = calculate_rate(achieved_grammar, goal.grammar_goal)
+    pron_rate = calculate_rate(achieved_pronunciation, goal.pronunciation_goal)
+
+    active_rates = [rate for rate, goal_val in [(conv_rate, goal.conversation_goal), (gram_rate, goal.grammar_goal), (pron_rate, goal.pronunciation_goal)] if goal_val > 0]
+    overall_progress = sum(active_rates) / len(active_rates) if active_rates else 0.0
+
+    feedback = "오늘의 학습을 시작하여 목표를 달성해보세요!"
+    if overall_progress >= 1.0:
+        feedback = "대단해요! 오늘의 모든 목표를 달성했습니다! 🎉"
+    elif overall_progress > 0:
+        feedback = "목표를 향해 순조롭게 나아가고 있어요. 조금만 더 힘내세요!"
+
+    return {
+        "overall_progress": overall_progress,
+        "conversation": {"goal": goal.conversation_goal, "achieved": achieved_conversation, "progress": conv_rate},
+        "grammar": {"goal": goal.grammar_goal, "achieved": achieved_grammar, "progress": gram_rate},
+        "pronunciation": {"goal": goal.pronunciation_goal, "achieved": achieved_pronunciation, "progress": pron_rate},
+        "feedback": feedback
+    }

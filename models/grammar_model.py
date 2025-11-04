@@ -27,3 +27,8 @@ class GrammarStatistics(BaseModel):
     incorrect_count: int
     accuracy: float
     recent_accuracy: Optional[float] = None
+
+class GrammarQuestionFavoriteUpdate(BaseModel):
+    is_favorite: bool
+    question: Optional[str] = None
+    options: Optional[dict] = None

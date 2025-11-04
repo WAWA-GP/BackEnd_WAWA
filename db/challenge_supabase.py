@@ -1,7 +1,8 @@
 # db/challenge_supabase.py
 
+import base64
 from datetime import datetime, timedelta
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 from supabase import AsyncClient
 
@@ -97,3 +98,47 @@ async def log_progress(db: AsyncClient, user_id: str, log_type: str, value: int)
         else:
             # 기존 기록이 없으면 생성
             await db.table('user_challenge_progress').insert({'challenge_id': challenge_id, 'user_id': user_id, 'current_value': value}).execute()
+
+# ▼▼▼ [신규] 챌린지 인증 내역을 DB에 저장하는 함수 ▼▼▼
+async def create_submission(db: AsyncClient, challenge_id: int, user_id: str, content: Optional[str], image_url: Optional[str]) -> Dict[str, Any]:
+    """challenge_submissions 테이블에 새로운 인증 기록을 생성합니다."""
+    response = await db.table('challenge_submissions').insert({
+        'challenge_id': challenge_id,
+        'user_id': user_id,
+        'proof_content': content,
+        'proof_image_url': image_url,
+        'status': 'pending',
+    }).execute()
+
+    # ✨ [핵심 수정]
+    # response.data가 비어있는지 확인하여 오류를 방지합니다.
+    if not response.data:
+        raise Exception("데이터베이스에 인증 내역을 저장하지 못했습니다. 테이블 이름이나 컬럼을 확인해주세요.")
+
+    return response.data[0]
+
+# ▼▼▼ [신규] 이미지를 Supabase 스토리지에 업로드하는 함수 ▼▼▼
+async def upload_challenge_image(db: AsyncClient, user_id: str, image_base64: str) -> str:
+    """Base64 인코딩된 이미지를 디코딩하여 Supabase 스토리지에 업로드하고 public URL을 반환합니다."""
+    try:
+        # 1. Base64 데이터를 이미지 바이너리로 디코딩
+        image_data = base64.b64decode(image_base64)
+
+        # 2. 파일 경로 및 이름 지정 (중복을 피하기 위해 timestamp 사용)
+        file_path = f"challenge_proofs/{user_id}/{datetime.now().timestamp()}.jpg"
+        bucket_name = 'images' # Supabase 스토리지의 버킷 이름
+
+        # 3. 이미지 업로드
+        await db.storage.from_(bucket_name).upload(file_path, image_data, {"content-type": "image/jpeg"})
+
+        # 4. 업로드된 파일의 Public URL 가져오기
+        response = await db.storage.from_(bucket_name).get_public_url(file_path)
+
+        # Supabase-py v1 에서는 response가 URL 문자열, v2 에서는 객체일 수 있음
+        public_url = response if isinstance(response, str) else response['publicURL']
+
+        return public_url
+
+    except Exception as e:
+        print(f"이미지 업로드 실패: {e}")
+        raise

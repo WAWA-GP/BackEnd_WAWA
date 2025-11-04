@@ -30,6 +30,12 @@ async def check_name_availability(name: str, supabase: AsyncClient) -> bool:
 async def register_user(user: UserCreate, supabase: AsyncClient):
     try:
         logging.info(f"=== 회원가입 시작: {user.email} ===")
+        if ' ' in user.name:
+            raise HTTPException(
+                status_code=400,
+                detail="이름에는 공백을 사용할 수 없습니다."
+            )
+
         existing = await user_crud.get_user_by_username(supabase, user.email)
         if existing:
             raise HTTPException(status_code=409, detail="이미 가입된 이메일입니다.")

@@ -17,7 +17,7 @@ class ChallengeUpdate(BaseModel):
 # --- 챌린지 인증 모델 ---
 class SubmissionCreate(BaseModel):
     proof_content: Optional[str] = Field(None, max_length=500)
-    # proof_image_url 필드는 파일 업로드 후 URL을 받아와 채워집니다.
+    proof_image_base64: Optional[str] = Field(None, description="Base64 encoded image data")
 
 # --- API 응답 모델 ---
 class ChallengeParticipant(BaseModel):
