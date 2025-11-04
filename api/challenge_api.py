@@ -1,6 +1,6 @@
 # api/challenge_api.py
 
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from supabase import AsyncClient
@@ -8,7 +8,7 @@ from supabase import AsyncClient
 from core.database import get_db
 from core.dependencies import get_current_user
 from db import study_group_supabase, user_crud
-from models.challenge_model import ChallengeUpdate, ChallengeResponse, ProgressLogRequest, ChallengeCreate, SubmissionCreate
+from models.challenge_model import ChallengeUpdate, ChallengeResponse, ProgressLogRequest, ChallengeCreate, SubmissionCreate, ChallengeParticipant, ChallengeSubmissionResponse
 
 router = APIRouter()
 
@@ -146,3 +146,54 @@ async def submit_challenge_proof(
         return {"message": "인증이 성공적으로 제출되었습니다.", "submission": new_submission}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"인증 제출 처리 중 오류 발생: {str(e)}")
+
+@router.get(
+    "/study-groups/challenges/{challenge_id}/participants",
+    response_model=List[ChallengeParticipant],
+    summary="[신규] 완료한 멤버 탭"
+)
+async def list_challenge_participants(
+        challenge_id: int,
+        db: AsyncClient = Depends(get_db)
+):
+    """(신규) 특정 챌린지를 완료(승인)한 참여자 목록을 반환합니다."""
+
+    # study_group_supabase.py 에 있는 함수를 호출합니다.
+    participants_data = await study_group_supabase.get_challenge_participants(db, challenge_id)
+    if not participants_data:
+        return []
+    return participants_data
+
+
+# ▼▼▼ [신규] "인증하기" 탭을 위한 API 엔드포인트 ▼▼▼
+@router.get(
+    "/study-groups/challenges/{challenge_id}/my-submission",
+    response_model=Optional[ChallengeSubmissionResponse], #
+    summary="[신규] 인증하기 탭"
+)
+async def get_my_submission_for_challenge(
+        challenge_id: int,
+        db: AsyncClient = Depends(get_db),
+        current_user: dict = Depends(get_current_user)
+):
+    """(신규) 특정 챌린지에 대한 나의 가장 최근 인증 내역을 반환합니다."""
+    user_id = current_user.get('user_id')
+
+    # study_group_supabase.py 에 있는 함수를 호출합니다.
+    submission_data = await study_group_supabase.get_user_submission_for_challenge(db, challenge_id, user_id)
+
+    if not submission_data:
+        # 프론트엔드가 204 No Content (내용 없음)를 null로 처리합니다.
+        return None
+
+        # DB 데이터를 ChallengeSubmissionResponse 모델에 맞게 변환합니다.
+    # (참고: Supabase 함수가 user_account(name)을 JOIN해야 합니다)
+    return ChallengeSubmissionResponse(
+        id=submission_data['id'],
+        user_id=submission_data['user_id'],
+        user_name=submission_data.get('user_account', {}).get('name', 'Unknown'),
+        proof_content=submission_data.get('proof_content'),
+        proof_image_url=submission_data.get('proof_image_url'),
+        status=submission_data['status'],
+        submitted_at=submission_data['submitted_at']
+    )
