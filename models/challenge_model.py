@@ -9,6 +9,8 @@ class ChallengeCreate(BaseModel):
     title: str = Field(..., min_length=3, max_length=100)
     description: Optional[str] = Field(None, max_length=1000)
     duration_days: int = Field(..., ge=1, le=365)
+    challenge_type: str
+    target_value: int
 
 class ChallengeUpdate(BaseModel):
     title: str = Field(..., min_length=3, max_length=100)
