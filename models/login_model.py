@@ -1,6 +1,6 @@
 from typing import Optional, Dict
 
-from pydantic import BaseModel, EmailStr, ConfigDict
+from pydantic import BaseModel, EmailStr, ConfigDict, field_validator
 
 
 # Pydantic V2에서는 Union 타입을 | (파이프)로 표현하는 것을 권장합니다.
@@ -11,6 +11,16 @@ class UserCreate(BaseModel):
     password: str
     name: str
     is_admin: bool = False
+
+    @field_validator('password')
+    def validate_password_length(cls, v):
+        # UTF-8 바이트 길이 체크
+        if len(v.encode('utf-8')) > 72:
+            raise ValueError('비밀번호는 72바이트를 초과할 수 없습니다')
+        # (선택사항) 최소 길이도 여기서 검사할 수 있습니다.
+        if len(v) < 8:
+            raise ValueError('비밀번호는 8자 이상이어야 합니다')
+        return v
 
 class UserUpdate(BaseModel):
     email: Optional[EmailStr] = None

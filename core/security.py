@@ -8,12 +8,16 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# ▼▼▼ [수정] "bcrypt" -> "sha512_crypt"로 변경 ▼▼▼
 pwd_context = CryptContext(
-    schemes=["bcrypt"],
+    schemes=["sha512_crypt", "bcrypt"], # 1. sha512_crypt를 기본값으로
     deprecated="auto",
-    bcrypt__rounds=12,  # 보안 강화
-    bcrypt__ident="2b"  # 최신 bcrypt 식별자 사용
+
+    # 2. bcrypt 관련 설정은 그대로 둡니다 (기존 해시 검증용)
+    bcrypt__rounds=12,
+    bcrypt__ident="2b"
 )
+# ▲▲▲ [수정 완료] ▲▲▲
 
 
 # .env 파일의 SUPABASE_JWT_SECRET 값을 가져옵니다.
@@ -22,15 +26,15 @@ ALGORITHM = config.ALGORITHM
 
 # --- Password Hashing ---
 def hash_password(password: str) -> str:
-    """비밀번호를 해싱합니다. 72바이트 제한 처리 포함"""
+    """비밀번호를 해싱합니다. (sha512_crypt 사용)"""
     try:
-        # bcrypt는 72바이트까지만 처리 가능하므로 자르기
-        if len(password.encode('utf-8')) > 72:
-            password = password[:72]
-            logging.warning("비밀번호가 72바이트를 초과하여 잘렸습니다")
+        # ▼▼▼ [수정] 72바이트 제한 로직(if, password=...) 삭제 ▼▼▼
+        # if len(password.encode('utf-8')) > 72:
+        #     password = password[:72]
+        #     logging.warning("비밀번호가 72바이트를 초과하여 잘렸습니다")
 
         hashed = pwd_context.hash(password)
-        logging.info("비밀번호 해싱 성공")
+        logging.info("비밀번호 해싱 성공 (sha512_crypt)")
         return hashed
     except Exception as e:
         logging.error(f"비밀번호 해싱 실패: {e}")
@@ -39,10 +43,13 @@ def hash_password(password: str) -> str:
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """평문 비밀번호와 해시를 비교합니다."""
     try:
-        # 동일하게 72바이트 제한 적용
-        if len(plain_password.encode('utf-8')) > 72:
-            plain_password = plain_password[:72]
-            logging.warning("검증할 비밀번호가 72바이트를 초과하여 잘렸습니다")
+        # ▼▼▼ [수정] 72바이트 제한 로직(if, plain_password=...) 삭제 ▼▼▼
+        # passlib가 해시 타입(sha512_crypt or bcrypt)을
+        # 자동으로 감지하고 올바른 방식으로 검증합니다.
+
+        # if len(plain_password.encode('utf-8')) > 72:
+        #     plain_password = plain_password[:72]
+        #     logging.warning("검증할 비밀번호가 72바이트를 초과하여 잘렸습니다")
 
         result = pwd_context.verify(plain_password, hashed_password)
         logging.info(f"비밀번호 검증 완료 - 결과: {result}")
@@ -50,6 +57,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     except Exception as e:
         logging.error(f"비밀번호 검증 오류: {e}")
         return False
+
 # --- JWT Token ---
 def create_access_token(data: dict):
     to_encode = data.copy()
