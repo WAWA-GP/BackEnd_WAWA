@@ -10,7 +10,7 @@ async def get_pronunciation_history(
     """사용자의 발음 분석 이력 조회"""
     # ✅ pronunciation_session → pronunciation_sessions
     response = await db.table('pronunciation_analysis_results') \
-        .select('*, pronunciation_sessions!inner(user_id, target_text, session_id)') \
+        .select('*, phoneme_score, pronunciation_sessions!inner(user_id, target_text, session_id)') \
         .eq('pronunciation_sessions.user_id', user_id) \
         .order('created_at', desc=True) \
         .limit(limit) \
@@ -38,7 +38,7 @@ async def get_pronunciation_detail(
 ) -> Optional[Dict[str, Any]]:
     """특정 발음 분석 결과 상세 조회"""
     response = await db.table('pronunciation_analysis_results') \
-        .select('*, pronunciation_sessions!inner(user_id, target_text, session_id)') \
+        .select('*, phoneme_score, pronunciation_sessions!inner(user_id, target_text, session_id)') \
         .eq('id', result_id) \
         .eq('pronunciation_sessions.user_id', user_id) \
         .single() \
@@ -86,7 +86,7 @@ async def get_pronunciation_statistics(
 ) -> Dict[str, Any]:
     """발음 분석 통계"""
     response = await db.table('pronunciation_analysis_results') \
-        .select('overall_score, pitch_score, rhythm_score, stress_score, fluency_score, created_at, pronunciation_sessions!inner(user_id)') \
+        .select('overall_score, pitch_score, rhythm_score, stress_score, fluency_score, phoneme_score, created_at, pronunciation_sessions!inner(user_id)') \
         .eq('pronunciation_sessions.user_id', user_id) \
         .order('created_at', desc=True) \
         .execute()
@@ -99,6 +99,7 @@ async def get_pronunciation_statistics(
             'average_rhythm': 0.0,
             'average_stress': 0.0,
             'average_fluency': 0.0,
+            'average_phoneme': 0.0,
             'recent_improvement': None
         }
 
@@ -119,5 +120,6 @@ async def get_pronunciation_statistics(
         'average_rhythm': sum(s['rhythm_score'] for s in scores) / count,
         'average_stress': sum(s['stress_score'] for s in scores) / count,
         'average_fluency': sum(s.get('fluency_score', 0) or 0 for s in scores) / count,
+        'average_phoneme': sum(s.get('phoneme_score', 0) or 0 for s in scores) / count,
         'recent_improvement': recent_improvement
     }

@@ -15,6 +15,7 @@ class PronunciationHistoryResponse(BaseModel):
     confidence: Optional[float] = None
     rate_status: Optional[str] = None
     fluency_status: Optional[str] = None
+    phoneme_score: Optional[float] = None
     misstressed_words: Optional[List[str]] = None
     detailed_feedback: List[str]
     suggestions: List[str]
@@ -61,4 +62,5 @@ class PronunciationStatistics(BaseModel):
     average_rhythm: float
     average_stress: float
     average_fluency: float
+    average_phoneme: Optional[float] = 0.0
     recent_improvement: Optional[float] = None
